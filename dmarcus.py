@@ -19,6 +19,8 @@ from flask import render_template
 __version__ = "0.1"
 
 app = Flask(__name__)
+print("Static folder path:", app.static_folder)
+
 app.secret_key = 'supersecretkey'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit
 UPLOAD_FOLDER = 'uploads'
@@ -287,7 +289,8 @@ def dashboard():
         'dashboard.html',
         stats=stats,
         reports_data=reports_data,
-        UPLOAD_FOLDER=UPLOAD_FOLDER
+        UPLOAD_FOLDER=UPLOAD_FOLDER,
+        version=__version__
     )
 
 @app.route('/upload', methods=['GET', 'POST'])
@@ -305,14 +308,22 @@ def upload():
         if file and (file.filename.endswith('.xml') or file.filename.endswith('.xml.gz')):
             try:
                 report = parse_dmarc_report(file)
-                if 'error' not in report:
-                    add_report(report)
-                    global reports_data
-                    reports_data = load_reports()  # Aggiorna i dati in memoria
-                    flash('Report uploaded successfully!', 'success')
-                    return redirect(url_for('dashboard'))
-                else:
-                    flash(f"Parse error: {report['error']}", 'error')
+                if 'error' in report:
+                    flash(f"Error: {report['error']}", 'error')
+                    return redirect(request.url)
+                
+                # Use the database function that checks for duplicates
+                from database import add_report
+                add_report(report)
+                
+                # Update the global reports_data
+                global reports_data
+                reports_data = load_reports()
+                flash('Report uploaded successfully!', 'success')
+                return redirect(url_for('dashboard'))
+                
+            except ValueError as e:
+                flash(str(e), 'error')
             except Exception as e:
                 flash(f"Error processing file: {str(e)}", 'error')
             
