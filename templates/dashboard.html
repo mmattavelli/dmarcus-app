@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMARCus Analyzer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0/dist/chartjs-adapter-moment.min.js"></script>
+    <style>
+        :root {
+            --blue-50: #f0f7ff;
+            --blue-100: #e0effe;
+            --blue-200: #b9dffd;
+            --blue-300: #7cc4fa;
+            --blue-400: #36a6f6;
+            --blue-500: #0c8ce7;
+            --blue-600: #006ec5;
+            --blue-700: #0157a0;
+            --blue-800: #064a83;
+            --blue-900: #0b3e6d;
+            --blue-950: #072749;
+            
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --info-color: #17a2b8;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+        }
+
+        .version-info {
+            position: fixed;
+            bottom: 1rem;
+            left: 1rem;
+            color: var(--blue-100);
+            font-size: 0.75rem;
+            opacity: 0.8;
+            z-index: 1000;
+        }
+                                  
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .user-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--blue-600);
+        }
+
+        .user-avatar {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--blue-100);
+        }                                   
+
+        body {
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--blue-50);
+            padding-top: 0;
+            margin-top: 0;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.15rem 1rem 0 rgba(0, 0, 0, 0.05);
+            margin-bottom: 1.5rem;
+            background-color: white;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0.5rem 1.5rem 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-header {
+            background-color: white;
+            border-bottom: 1px solid var(--blue-100);
+            padding: 1rem 1.5rem;
+            font-weight: 700;
+            color: var(--blue-800);
+            border-radius: 0.5rem 0.5rem 0 0 !important;
+        }
+        
+        .bg-primary {
+            background-color: var(--blue-500) !important;
+        }
+        
+        .text-primary {
+            color: var(--blue-600) !important;
+        }
+        
+        .btn-primary {
+            background-color: var(--blue-600);
+            border-color: var(--blue-700);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--blue-700);
+            border-color: var(--blue-800);
+        }
+        
+        .btn-outline-primary {
+            color: var(--blue-600);
+            border-color: var(--blue-600);
+        }
+        
+        .btn-outline-primary:hover {
+            background-color: var(--blue-600);
+            border-color: var(--blue-600);
+            color: white;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        
+        .kpi-card {
+            border-left: 0.25rem solid var(--blue-500);
+            transition: all 0.3s;
+        }
+        
+        .kpi-card:hover {
+            border-left: 0.25rem solid var(--blue-700);
+        }
+        
+        .kpi-card .card-body {
+            padding: 1.25rem;
+        }
+        
+        .kpi-card .text-xs {
+            font-size: 0.7rem;
+            color: var(--blue-600);
+        }
+        
+        .kpi-card .h5 {
+            font-size: 1.5rem;
+            color: var(--blue-800);
+        }
+        
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(180deg, var(--blue-700) 0%, var(--blue-900) 100%);
+            width: 14rem !important;
+            position: fixed;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        
+        .sidebar .nav-item .nav-link {
+            color: rgba(255,255,255,0.85);
+            border-radius: 0.25rem;
+            margin: 0.25rem 0.5rem;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s;
+        }
+
+        .sidebar .nav-item .nav-link:hover {
+            background-color: rgba(255,255,255,0.15);
+            color: white;
+        }
+        
+        .sidebar .nav-item.active .nav-link {
+            background-color: rgba(255,255,255,0.2);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .sidebar .nav-item .nav-link i {
+            margin-right: 0.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .sidebar-brand {
+            background-color: rgba(0,0,0,0.1);
+            margin: 0.5rem;
+            border-radius: 0.5rem;
+            padding: 1.25rem 1rem;
+            text-align: center;
+        }
+        
+        .sidebar-brand-text {
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: 0.05rem;
+            color: white;
+        }
+        
+        .sidebar-brand-icon {
+            font-size: 1.75rem;
+            color: white;
+        }
+        
+        .sidebar-divider {
+            border-top: 1px solid rgba(255,255,255,0.15);
+            margin: 1rem 1rem;
+        }
+        
+        .sidebar-heading {
+            padding: 0 1rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.05rem;
+            margin-top: 1rem;
+        }
+        
+        .topbar {
+            height: 4.5rem;
+            box-shadow: 0 0.15rem 1rem 0 rgba(0, 0, 0, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 999;
+            background-color: white;
+            padding: 0 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .topbar .navbar-nav {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .topbar .nav-item .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            color: var(--blue-800);
+            font-size: 0.9rem;
+        }
+        
+        .topbar .nav-item .nav-link:hover {
+            color: var(--blue-600);
+        }
+
+        .topbar .nav-item .nav-link .img-profile {
+            width: 2.5rem;
+            height: 2.5rem;
+            border: 2px solid var(--blue-100);
+        }
+        
+        .topbar .nav-item.dropdown .dropdown-menu {
+            margin-top: 0.5rem;
+            border: none;
+            box-shadow: 0 0.15rem 1rem 0 rgba(0, 0, 0, 0.1);
+            border-radius: 0.5rem;
+        }
+        
+        .topbar .dropdown-item {
+            padding: 0.5rem 1.25rem;
+        }
+
+        .topbar-divider {
+            width: 1px;
+            background-color: var(--blue-100);
+            height: 2.5rem;
+            margin: 0 0.5rem;
+        }
+        
+        .topbar .nav-item .nav-link .badge-counter {
+            position: absolute;
+            transform: scale(0.7);
+            transform-origin: top right;
+            right: 0.25rem;
+            margin-top: -0.25rem;
+        }
+        
+        .topbar .dropdown-list {
+            padding: 0;
+            border: none;
+            overflow: hidden;
+            width: 20rem !important;
+            border-radius: 0.5rem;
+        }
+        
+        .topbar .dropdown-list .dropdown-header {
+            background-color: var(--blue-600);
+            border: 1px solid var(--blue-600);
+            padding: 0.75rem 1rem;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .topbar .dropdown-list .dropdown-item {
+            white-space: normal;
+            padding: 0.75rem 1.25rem;
+            border-bottom: 1px solid var(--blue-50);
+        }
+        
+        .topbar .dropdown-list .dropdown-item:last-child {
+            border-bottom: none;
+        }
+        
+        .topbar .dropdown-list .dropdown-item .text-truncate {
+            max-width: 13.375rem;
+        }
+        
+        .badge-primary {
+            background-color: var(--blue-600);
+        }
+        
+        .badge-success {
+            background-color: var(--success-color);
+        }
+        
+        .badge-danger {
+            background-color: var(--danger-color);
+        }
+        
+        .badge-warning {
+            background-color: var(--warning-color);
+        }
+        
+        .badge-info {
+            background-color: var(--info-color);
+        }
+        
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .table th {
+            border-top: none;
+            border-bottom: 1px solid var(--blue-100);
+            color: var(--blue-700);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05rem;
+        }
+        
+        .table td {
+            vertical-align: middle;
+            border-top: 1px solid var(--blue-50);
+        }
+        
+        .progress-sm {
+            height: 0.5rem;
+            border-radius: 0.25rem;
+        }
+        
+        .progress-bar {
+            background-color: var(--blue-500);
+        }
+        
+        .theme-toggle {
+            cursor: pointer;
+            color: var(--blue-600);
+        }
+        
+        .alert {
+            border-radius: 0.5rem;
+            border: none;
+            box-shadow: 0 0.15rem 0.5rem 0 rgba(0, 0, 0, 0.05);
+        }
+        
+        .modal-content {
+            border-radius: 0.5rem;
+            border: none;
+            box-shadow: 0 0.5rem 1.5rem 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        .modal-header {
+            border-bottom: 1px solid var(--blue-100);
+            background-color: var(--blue-50);
+            border-radius: 0.5rem 0.5rem 0 0 !important;
+        }
+        
+        @media (min-width: 768px) {
+            .sidebar {
+                width: 14rem !important;
+            }
+            
+            .content {
+                margin-left: 14rem;
+                width: calc(100% - 14rem);
+                min-height: calc(100vh - 60px);
+                padding: 1.5rem;
+            }
+            
+            .topbar {
+                width: calc(100% - 14rem);
+                margin-left: 14rem;
+                position: fixed;
+                top: 0;
+                right: 0;
+                left: 14rem;
+                height: 4.5rem;
+                box-shadow: 0 0.15rem 1rem 0 rgba(0, 0, 0, 0.05);
+                z-index: 998;
+            }
+            
+            .main-content {
+                margin-top: 4.5rem;
+                padding: 1.5rem;
+            }
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="sidebar bg-primary">
+        <a class="sidebar-brand d-flex align-items-center justify-content-center" href="#">
+            <div class="sidebar-brand-icon">
+                <i class="bi bi-shield-lock"></i>
+            </div>
+            <div class="sidebar-brand-text mx-2">DMARCus</div>
+        </a>
+        <hr class="sidebar-divider my-0">
+        <div class="nav-item">
+            <a class="nav-link active" href="/dashboard">
+                <i class="bi bi-speedometer2"></i>
+                <span>Dashboard</span>
+            </a>
+        </div>
+        <hr class="sidebar-divider">
+        <div class="sidebar-heading">
+            Reports
+        </div>
+        <div class="nav-item">
+            <a class="nav-link" href="/upload">
+                <i class="bi bi-upload"></i>
+                <span>Upload Report</span>
+            </a>
+        </div>
+        <div class="nav-item">
+            <a class="nav-link" href="#" id="exportDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download"></i>
+                <span>Export Data</span>
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                <li><a class="dropdown-item" href="/export/csv">CSV Format</a></li>
+                <li><a class="dropdown-item" href="/export/json">JSON Format</a></li>
+            </ul>
+        </div>
+        <hr class="sidebar-divider">
+        <div class="sidebar-heading">
+            Tools
+        </div>
+        <div class="nav-item">
+            <a class="nav-link" href="/reload">
+                <i class="bi bi-arrow-clockwise"></i>
+                <span>Reload Reports</span>
+            </a>
+        </div>
+        <div class="nav-item">
+            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                <i class="bi bi-gear"></i>
+                <span>Settings</span>
+            </a>
+        </div>
+        
+        <div class="version-info">
+            DMARCus v{{ __version__ }}
+        </div>
+    </div>
+
+    <div class="content">
+        <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
+            <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-2">
+                <i class="bi bi-list"></i>
+            </button>
+            
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item dropdown no-arrow mx-1">
+                    <a class="nav-link dropdown-toggle py-1" href="#" id="alertsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-bell-fill"></i>
+                        <span class="badge badge-danger badge-counter">3+</span>
+                    </a>
+                    <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="alertsDropdown">
+                        <h6 class="dropdown-header">
+                            Alerts Center
+                        </h6>
+                        <a class="dropdown-item d-flex align-items-center" href="#">
+                            <div class="mr-3">
+                                <div class="icon-circle bg-primary">
+                                    <i class="bi bi-exclamation-triangle text-white"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="small text-gray-500">December 12, 2023</div>
+                                <span class="font-weight-bold">High failure rate detected for example.com</span>
+                            </div>
+                        </a>
+                        <a class="dropdown-item d-flex align-items-center" href="#">
+                            <div class="mr-3">
+                                <div class="icon-circle bg-success">
+                                    <i class="bi bi-check-circle text-white"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="small text-gray-500">December 7, 2023</div>
+                                Policy updated for acme.com
+                            </div>
+                        </a>
+                        <a class="dropdown-item text-center small text-gray-500" href="#">Show All Alerts</a>
+                    </div>
+                </li>
+                
+                <div class="topbar-divider d-none d-sm-block"></div>
+                
+                <li class="nav-item dropdown no-arrow">
+                    <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <div class="user-info">
+                            <span class="user-name d-none d-lg-inline">Admin User</span>
+                            <img class="user-avatar" src="https://source.unsplash.com/QAB-WJcbgJk/60x60" alt="User profile">
+                        </div>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="userDropdown">
+                        <a class="dropdown-item" href="#">
+                            <i class="bi bi-person-fill mr-2 text-gray-400"></i>
+                            Profile
+                        </a>
+                        <a class="dropdown-item" href="#">
+                            <i class="bi bi-gear-fill mr-2 text-gray-400"></i>
+                            Settings
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">
+                            <i class="bi bi-box-arrow-right mr-2 text-gray-400"></i>
+                            Logout
+                        </a>
+                    </div>
+                </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link theme-toggle">
+                        <i class="bi bi-moon-fill"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="container-fluid main-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show fade-in" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% if not stats %}
+            <div class="card shadow mb-4 fade-in">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Welcome to DMARCus Analyzer</h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center">
+                        <img class="img-fluid px-3 px-sm-4 mt-3 mb-4" style="width: 25rem;" src="https://undraw.co/illustrations" alt="No data">
+                        <p>No DMARC reports available. Get started by uploading your first DMARC report.</p>
+                        <a href="/upload" class="btn btn-primary">
+                            <i class="bi bi-upload"></i> Upload Report
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="d-sm-flex align-items-center justify-content-between mb-4 fade-in">
+                <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
+                <div class="d-flex">
+                    <div class="dropdown mr-2">
+                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-calendar"></i> Last 30 Days
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                            <li><a class="dropdown-item" href="#">Today</a></li>
+                            <li><a class="dropdown-item" href="#">Last 7 Days</a></li>
+                            <li><a class="dropdown-item" href="#">Last 30 Days</a></li>
+                            <li><a class="dropdown-item" href="#">This Month</a></li>
+                            <li><a class="dropdown-item" href="#">Custom Range</a></li>
+                        </ul>
+                    </div>
+                    <a href="/export/csv" class="btn btn-sm btn-primary shadow-sm">
+                        <i class="bi bi-download"></i> Generate Report
+                    </a>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-xl-3 col-md-6 mb-4 fade-in delay-1">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Total Reports</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total_reports }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-file-earmark-text fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-xl-3 col-md-6 mb-4 fade-in delay-1">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Total Emails</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total_emails }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-envelope fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-xl-3 col-md-6 mb-4 fade-in delay-2">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Authentication Success</div>
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col-auto">
+                                            <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800">{{ stats.policy_evaluation.pct_compliance }}%</div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="progress progress-sm mr-2">
+                                                <div class="progress-bar bg-primary" role="progressbar" style="width: {{ stats.policy_evaluation.pct_compliance }}%" aria-valuenow="{{ stats.policy_evaluation.pct_compliance }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-shield-check fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-xl-3 col-md-6 mb-4 fade-in delay-2">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Monitored Domains</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.domains|length }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-globe fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-xl-8 col-lg-7 fade-in delay-1">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                            <h6 class="m-0 font-weight-bold text-primary">Email Volume Overview</h6>
+                            <div class="dropdown no-arrow">
+                                <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots-vertical text-gray-400"></i>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+                                    <li><a class="dropdown-item" href="#">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="#">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="#">This Year</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="timeSeriesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-xl-4 col-lg-5 fade-in delay-1">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                            <h6 class="m-0 font-weight-bold text-primary">Authentication Results</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="authChart"></canvas>
+                            </div>
+                            <div class="mt-4 text-center small">
+                                <span class="mr-2">
+                                    <i class="bi bi-circle-fill text-success"></i> Pass
+                                </span>
+                                <span class="mr-2">
+                                    <i class="bi bi-circle-fill text-warning"></i> Partial
+                                </span>
+                                <span class="mr-2">
+                                    <i class="bi bi-circle-fill text-danger"></i> Fail
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-6 mb-4 fade-in delay-2">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Top Sending IPs</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="ipChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-6 mb-4 fade-in delay-2">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Domains Distribution</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="domainChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-6 mb-4 fade-in delay-3">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Disposition Analysis</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="dispositionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-6 mb-4 fade-in delay-3">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Internal vs External</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="internalChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow mb-4 fade-in delay-3">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">All Reports</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Organization</th>
+                                    <th>Domain</th>
+                                    <th>Date Range</th>
+                                    <th>Records</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for report in reports_data %}
+                                <tr>
+                                    <td>{{ report.org }}</td>
+                                    <td>{{ report.policy.domain }}</td>
+                                    <td>{{ report.date_range.start }} to {{ report.date_range.end }}</td>
+                                    <td>{{ report.records|length }}</td>
+                                    <td>
+                                        {% set pass_count = report.records|selectattr('spf', 'equalto', 'pass')|list|length + report.records|selectattr('dkim', 'equalto', 'pass')|list|length %}
+                                        {% set total = report.records|length * 2 %}
+                                        {% set pass_rate = (pass_count / total * 100) if total > 0 else 0 %}
+                                        
+                                        <div class="progress progress-sm">
+                                            <div class="progress-bar bg-primary" role="progressbar" style="width: {{ pass_rate }}%" aria-valuenow="{{ pass_rate }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                        <small>{{ pass_rate|round(1) }}% passed</small>
+                                    </td>
+                                    <td>
+                                        <a href="/report/{{ loop.index0 }}" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Logout Modal-->
+    <div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Ready to Leave?</h5>
+                    <button class="close" type="button" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">Select "Logout" below if you are ready to end your current session.</div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <a class="btn btn-primary" href="login.html">Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" role="dialog" aria-labelledby="settingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="settingsModalLabel">DMARCus Settings</h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="form-group">
+                            <label for="uploadFolder">Upload Folder</label>
+                            <input type="text" class="form-control" id="uploadFolder" value="{{ UPLOAD_FOLDER }}" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label for="themeSelect">Theme</label>
+                            <select class="form-control" id="themeSelect">
+                                <option>Light</option>
+                                <option>Dark</option>
+                                <option>Auto</option>
+                            </select>
+                        </div>
+                        <div class="form-group form-check">
+                            <input type="checkbox" class="form-check-input" id="autoReloadCheck" checked>
+                            <label class="form-check-label" for="autoReloadCheck">Auto-reload reports on startup</label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary">Save changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Theme toggle
+        document.querySelector('.theme-toggle').addEventListener('click', function() {
+            const htmlEl = document.documentElement;
+            const currentTheme = htmlEl.getAttribute('data-bs-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            htmlEl.setAttribute('data-bs-theme', newTheme);
+            this.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
+            
+            // Save preference to localStorage
+            localStorage.setItem('theme', newTheme);
+        });
+        
+        // Check for saved theme preference
+        if (localStorage.getItem('theme')) {
+            document.documentElement.setAttribute('data-bs-theme', localStorage.getItem('theme'));
+            document.querySelector('.theme-toggle i').className = localStorage.getItem('theme') === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+        }
+        
+        // Sidebar toggle for mobile
+        document.getElementById('sidebarToggleTop').addEventListener('click', function() {
+            document.body.classList.toggle('sidebar-toggled');
+            document.querySelector('.sidebar').classList.toggle('toggled');
+        });
+    </script>
+
+    {% if stats %}
+    <script>
+        // Time Series Chart
+        const timeSeriesCtx = document.getElementById('timeSeriesChart').getContext('2d');
+        new Chart(timeSeriesCtx, {
+            type: 'line',
+            data: {
+                labels: {{ stats.time_series_labels|tojson }},
+                datasets: [
+                    {
+                        label: 'Reports',
+                        data: {{ stats.time_series_report_counts|tojson }},
+                        borderColor: '#006ec5',
+                        backgroundColor: 'rgba(0, 110, 197, 0.05)',
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'Emails',
+                        data: {{ stats.time_series_email_counts|tojson }},
+                        borderColor: '#36a6f6',
+                        backgroundColor: 'rgba(54, 166, 246, 0.05)',
+                        tension: 0.3,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+
+        // Authentication Results Chart
+        const authCtx = document.getElementById('authChart').getContext('2d');
+        new Chart(authCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Both Pass', 'SPF Only', 'DKIM Only', 'Alignment Fail', 'Failures'],
+                datasets: [{
+                    data: [
+                        {{ stats.auth_results.both_pass }},
+                        {{ stats.auth_results.spf_pass }},
+                        {{ stats.auth_results.dkim_pass }},
+                        {{ stats.auth_results.alignment_fail }},
+                        {{ stats.auth_results.fail }}
+                    ],
+                    backgroundColor: [
+                        '#006ec5',
+                        '#36a6f6',
+                        '#7cc4fa',
+                        '#b9dffd',
+                        '#e0effe'
+                    ],
+                    hoverBackgroundColor: [
+                        '#0157a0',
+                        '#0c8ce7',
+                        '#36a6f6',
+                        '#7cc4fa',
+                        '#b9dffd'
+                    ],
+                    hoverBorderColor: "rgba(234, 236, 244, 1)",
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        backgroundColor: "rgb(255,255,255)",
+                        bodyColor: "#858796",
+                        borderColor: '#dddfeb',
+                        borderWidth: 1,
+                        padding: 15,
+                        displayColors: true,
+                        caretPadding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const value = context.raw;
+                                const percentage = Math.round((value / total) * 100);
+                                return `${context.label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    },
+                    legend: {
+                        position: 'bottom'
+                    },
+                    cutout: '80%'
+                }
+            }
+        });
+
+        // Top Sending IPs Chart
+        const ipCtx = document.getElementById('ipChart').getContext('2d');
+        new Chart(ipCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ stats.top_ips.ips|tojson }},
+                datasets: [{
+                    label: 'Email Count',
+                    data: {{ stats.top_ips.counts|tojson }},
+                    backgroundColor: '#006ec5',
+                    hoverBackgroundColor: '#0157a0',
+                    borderColor: "#006ec5"
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.parsed.x} emails`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            precision: 0
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+
+        // Domains Distribution Chart
+        const domainCtx = document.getElementById('domainChart').getContext('2d');
+        new Chart(domainCtx, {
+            type: 'pie',
+            data: {
+                labels: {{ stats.domain_distribution.domains|tojson }},
+                datasets: [{
+                    data: {{ stats.domain_distribution.counts|tojson }},
+                    backgroundColor: [
+                        '#006ec5', '#36a6f6', '#7cc4fa', '#b9dffd', '#e0effe',
+                        '#0b3e6d', '#064a83', '#0157a0', '#0c8ce7', '#36a6f6'
+                    ],
+                    hoverBackgroundColor: [
+                        '#0157a0', '#0c8ce7', '#36a6f6', '#7cc4fa', '#b9dffd',
+                        '#072749', '#0b3e6d', '#064a83', '#0157a0', '#0c8ce7'
+                    ],
+                    hoverBorderColor: "rgba(234, 236, 244, 1)",
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        backgroundColor: "rgb(255,255,255)",
+                        bodyColor: "#858796",
+                        borderColor: '#dddfeb',
+                        borderWidth: 1,
+                        padding: 15,
+                        displayColors: true,
+                        caretPadding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const value = context.raw;
+                                const percentage = Math.round((value / total) * 100);
+                                return `${context.label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    },
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Disposition Analysis Chart
+        const dispositionCtx = document.getElementById('dispositionChart').getContext('2d');
+        new Chart(dispositionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ stats.dispositions.keys()|list|tojson }},
+                datasets: [{
+                    data: {{ stats.dispositions.values()|list|tojson }},
+                    backgroundColor: [
+                        '#006ec5', '#36a6f6', '#7cc4fa', '#b9dffd'
+                    ],
+                    hoverBackgroundColor: [
+                        '#0157a0', '#0c8ce7', '#36a6f6', '#7cc4fa'
+                    ],
+                    hoverBorderColor: "rgba(234, 236, 244, 1)",
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        backgroundColor: "rgb(255,255,255)",
+                        bodyColor: "#858796",
+                        borderColor: '#dddfeb',
+                        borderWidth: 1,
+                        padding: 15,
+                        displayColors: true,
+                        caretPadding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const value = context.raw;
+                                const percentage = Math.round((value / total) * 100);
+                                return `${context.label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    },
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Internal vs External Chart
+        const internalCtx = document.getElementById('internalChart').getContext('2d');
+        new Chart(internalCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Internal IPs', 'External IPs'],
+                datasets: [{
+                    data: [
+                        {{ stats.internal_vs_external.internal }},
+                        {{ stats.internal_vs_external.external }}
+                    ],
+                    backgroundColor: [
+                        '#006ec5', '#36a6f6'
+                    ],
+                    hoverBackgroundColor: [
+                        '#0157a0', '#0c8ce7'
+                    ],
+                    hoverBorderColor: "rgba(234, 236, 244, 1)",
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        backgroundColor: "rgb(255,255,255)",
+                        bodyColor: "#858796",
+                        borderColor: '#dddfeb',
+                        borderWidth: 1,
+                        padding: 15,
+                        displayColors: true,
+                        caretPadding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const value = context.raw;
+                                const percentage = Math.round((value / total) * 100);
+                                return `${context.label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    },
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    </script>
+    {% endif %}
+</body>
+</html>
