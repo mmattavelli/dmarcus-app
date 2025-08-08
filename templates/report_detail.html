@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DMARC Report - {{ report.org }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .card { margin-bottom: 20px; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+        .badge-success { background-color: #1cc88a; }
+        .badge-danger { background-color: #e74a3b; }
+        .badge-warning { background-color: #f6c23e; }
+        .badge-info { background-color: #36b9cc; }
+        .policy-card { border-left: 0.25rem solid #4e73df; }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container py-4">
+        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+            <h1 class="h3 mb-0 text-gray-800">Report Details</h1>
+            <div>
+                <a href="/dashboard" class="btn btn-sm btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Dashboard
+                </a>
+                <a href="/export/csv/{{ report_id }}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-download"></i> Export
+                </a>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-4">
+                <div class="card policy-card">
+                    <div class="card-body">
+                        <h4 class="card-title">Policy Summary</h4>
+                        <div class="mb-3">
+                            <h6 class="text-muted mb-1">Domain</h6>
+                            <p class="mb-0">{{ report.policy.domain }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <h6 class="text-muted mb-1">Policy</h6>
+                            <p class="mb-0">
+                                {{ report.policy.p|upper }} ({{ report.policy.pct }}% of messages)
+                            </p>
+                        </div>
+                        <div class="mb-3">
+                            <h6 class="text-muted mb-1">Subdomain Policy</h6>
+                            <p class="mb-0">{{ report.policy.sp|upper if report.policy.sp != 'N/A' else 'Same as domain' }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <h6 class="text-muted mb-1">Alignment Mode</h6>
+                            <p class="mb-0">
+                                DKIM: {{ report.policy.adkim|upper }}, 
+                                SPF: {{ report.policy.aspf|upper }}
+                            </p>
+                        </div>
+                        <div class="mb-3">
+                            <h6 class="text-muted mb-1">Forensic Reporting</h6>
+                            <p class="mb-0">{{ report.policy.fo }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body">
+                        <h4 class="card-title">Report Info</h4>
+                        <div class="mb-3">
+                            <h6 class="text-muted mb-1">Organization</h6>
+                            <p class="mb-0">{{ report.org }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <h6 class="text-muted mb-1">Report ID</h6>
+                            <p class="mb-0">{{ report.report_id }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <h6 class="text-muted mb-1">Date Range</h6>
+                            <p class="mb-0">
+                                {{ report.date_range.start }} to {{ report.date_range.end }}
+                            </p>
+                        </div>
+                        <div class="mb-3">
+                            <h6 class="text-muted mb-1">Total Records</h6>
+                            <p class="mb-0">{{ report.records|length }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <h6 class="text-muted mb-1">Authentication Score</h6>
+                            <div class="progress progress-sm">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ pass_rate }}%" 
+                                     aria-valuenow="{{ pass_rate }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100"></div>
+                            </div>
+                            <small>{{ pass_rate }}% passed</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" id="reportTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary" type="button" role="tab" aria-controls="summary" aria-selected="true">
+                                    Summary
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="records-tab" data-bs-toggle="tab" data-bs-target="#records" type="button" role="tab" aria-controls="records" aria-selected="false">
+                                    Records
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="ips-tab" data-bs-toggle="tab" data-bs-target="#ips" type="button" role="tab" aria-controls="ips" aria-selected="false">
+                                    IP Analysis
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        <div class="tab-content" id="reportTabsContent">
+                            <div class="tab-pane fade show active" id="summary" role="tabpanel" aria-labelledby="summary-tab">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="chart-container">
+                                            <canvas id="authChart"></canvas>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="chart-container">
+                                            <canvas id="dispositionChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-4">
+                                    <div class="col-md-6">
+                                        <div class="chart-container">
+                                            <canvas id="internalChart"></canvas>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="chart-container">
+                                            <canvas id="ipChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="tab-pane fade" id="records" role="tabpanel" aria-labelledby="records-tab">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Source IP</th>
+                                                <th>Count</th>
+                                                <th>SPF</th>
+                                                <th>DKIM</th>
+                                                <th>Alignment</th>
+                                                <th>Disposition</th>
+                                                <th>Header From</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for record in report.records %}
+                                            <tr>
+                                                <td>
+                                                    {{ record.source_ip }}
+                                                    {% if record.is_internal %}
+                                                        <span class="badge bg-info">Internal</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ record.count }}</td>
+                                                <td>
+                                                    <span class="badge {% if record.spf == 'pass' %}badge-success{% else %}badge-danger{% endif %}">
+                                                        {{ record.spf }}
+                                                    </span>
+                                                    {% if record.spf_domain %}
+                                                        <small class="text-muted d-block">{{ record.spf_domain }}</small>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <span class="badge {% if record.dkim == 'pass' %}badge-success{% else %}badge-danger{% endif %}">
+                                                        {{ record.dkim }}
+                                                    </span>
+                                                    {% if record.dkim_domain %}
+                                                        <small class="text-muted d-block">{{ record.dkim_domain }}</small>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% set spf_aligned = record.spf_domain.endswith(report.policy.domain) %}
+                                                    {% set dkim_aligned = record.dkim_domain.endswith(report.policy.domain) %}
+                                                    
+                                                    {% if record.spf == 'pass' or record.dkim == 'pass' %}
+                                                        {% if spf_aligned and dkim_aligned %}
+                                                            <span class="badge bg-success">Aligned</span>
+                                                        {% elif spf_aligned or dkim_aligned %}
+                                                            <span class="badge bg-warning">Partial</span>
+                                                        {% else %}
+                                                            <span class="badge bg-danger">Failed</span>
+                                                        {% endif %}
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">N/A</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ record.disposition }}</td>
+                                                <td>{{ record.header_from }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <div class="tab-pane fade" id="ips" role="tabpanel" aria-labelledby="ips-tab">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>IP Address</th>
+                                                <th>Count</th>
+                                                <th>Location</th>
+                                                <th>Authentication</th>
+                                                <th>Disposition</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for ip, count in ip_addresses.items()|sort(attribute='1', reverse=True) %}
+                                            {% set ip_records = report.records|selectattr('source_ip', 'equalto', ip)|list %}
+                                            {% set spf_pass = ip_records|selectattr('spf', 'equalto', 'pass')|list|length %}
+                                            {% set dkim_pass = ip_records|selectattr('dkim', 'equalto', 'pass')|list|length %}
+                                            {% set pass_rate = ((spf_pass + dkim_pass) / (ip_records|length * 2) * 100) if ip_records|length > 0 else 0 %}
+                                            <tr>
+                                                <td>{{ ip }}</td>
+                                                <td>{{ count }}</td>
+                                                <td>
+                                                    {{ ip_records[0].location }}
+                                                    {% if ip_records[0].is_internal %}
+                                                        <span class="badge bg-info">Internal</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <div class="progress progress-sm">
+                                                        <div class="progress-bar bg-success" role="progressbar" 
+                                                             style="width: {{ pass_rate }}%" 
+                                                             aria-valuenow="{{ pass_rate }}" 
+                                                             aria-valuemin="0" 
+                                                             aria-valuemax="100"></div>
+                                                    </div>
+                                                    <small>{{ pass_rate|round(1) }}% passed</small>
+                                                </td>
+                                                <td>
+                                                    {% set dispositions = ip_records|groupby('disposition') %}
+                                                    {% for disp, records in dispositions %}
+                                                        <span class="badge bg-secondary">{{ disp }}: {{ records|length }}</span>
+                                                    {% endfor %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Authentication Results Chart
+        const authCtx = document.getElementById('authChart').getContext('2d');
+        new Chart(authCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Both Pass', 'SPF Only', 'DKIM Only', 'Alignment Fail', 'Failures'],
+                datasets: [{
+                    data: [
+                        {{ auth_data.both_pass }},
+                        {{ auth_data.spf_pass }},
+                        {{ auth_data.dkim_pass }},
+                        {{ auth_data.alignment_fail }},
+                        {{ auth_data.fail }}
+                    ],
+                    backgroundColor: [
+                        '#1cc88a',
+                        '#36b9cc',
+                        '#f6c23e',
+                        '#f8b400',
+                        '#e74a3b'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const value = context.raw;
+                                const percentage = Math.round((value / total) * 100);
+                                return `${context.label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Disposition Analysis Chart
+        const dispositionCtx = document.getElementById('dispositionChart').getContext('2d');
+        new Chart(dispositionCtx, {
+            type: 'pie',
+            data: {
+                labels: {{ dispositions.keys()|list|tojson }},
+                datasets: [{
+                    data: {{ dispositions.values()|list|tojson }},
+                    backgroundColor: [
+                        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+
+        // Internal vs External Chart
+        const internalCtx = document.getElementById('internalChart').getContext('2d');
+        new Chart(internalCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Internal IPs', 'External IPs'],
+                datasets: [{
+                    data: [
+                        {{ internal_vs_external.internal }},
+                        {{ internal_vs_external.external }}
+                    ],
+                    backgroundColor: [
+                        '#4e73df', '#1cc88a'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+
+        // Top Sending IPs Chart
+        const ipCtx = document.getElementById('ipChart').getContext('2d');
+        new Chart(ipCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ ip_chart_data.ips|tojson }},
+                datasets: [{
+                    label: 'Email Count',
+                    data: {{ ip_chart_data.counts|tojson }},
+                    backgroundColor: '#4e73df'
+                }]
+            },
+            options: {
+                responsive: true,
+                indexAxis: 'y',
+                scales: {
+                    x: { beginAtZero: true }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
