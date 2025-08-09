@@ -1,4 +1,4 @@
-# DMARCus Analyzer - SuperFigo Edition
+# DMARCus Analyzer
 
 ## Description
 
