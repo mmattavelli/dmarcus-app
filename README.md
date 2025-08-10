@@ -3,6 +3,7 @@
 ## Description
 
 DMARCus Analyzer is a Flask-based web application designed to parse and visualize DMARC reports in an intuitive way. This tool helps system administrators and security professionals monitor email authentication, identify potential threats, and improve DMARC policies.
+Developed by **Mattia Mattavelli** & **Luca Armiraglio**
 
 ## Key Features
 
