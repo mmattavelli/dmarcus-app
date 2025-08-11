@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload DMARC Report | DMARCus Analyzer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .dropzone {
+            border: 2px dashed #dee2e6;
+            border-radius: var(--border-radius);
+            background: #f8f9fa;
+            min-height: 200px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .dropzone:hover {
+            border-color: var(--primary-400);
+            background: var(--primary-50);
+        }
+        
+        .dropzone.active {
+            border-color: var(--primary-500);
+            background: var(--primary-100);
+        }
+        
+        .dropzone-icon {
+            font-size: 3rem;
+            color: var(--primary-400);
+            margin-bottom: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .dropzone-text {
+            color: var(--primary-600);
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .upload-card {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .upload-icon {
+            font-size: 5rem;
+            color: var(--primary-300);
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="sidebar bg-primary">
+        <a class="sidebar-brand d-flex flex-column align-items-center" href="#">
+            <div class="sidebar-brand-icon">
+                <i class="bi bi-shield-lock"></i>
+            </div>
+            <div class="sidebar-brand-text mx-2">DMARCus</div>
+            <small class="text-white opacity-75">SuperFigo Edition</small>
+        </a>
+        <hr class="sidebar-divider my-0">
+        <div class="nav-item">
+            <a class="nav-link" href="/dashboard">
+                <i class="bi bi-speedometer2"></i>
+                <span>Dashboard</span>
+            </a>
+        </div>
+        <hr class="sidebar-divider">
+        <div class="sidebar-heading">
+            Reports
+        </div>
+        <div class="nav-item">
+            <a class="nav-link active" href="/upload">
+                <i class="bi bi-upload"></i>
+                <span>Upload Report</span>
+            </a>
+        </div>
+        <div class="nav-item">
+            <a class="nav-link" href="#" id="exportDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download"></i>
+                <span>Export Data</span>
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                <li><a class="dropdown-item" href="/export/csv">CSV Format</a></li>
+                <li><a class="dropdown-item" href="/export/json">JSON Format</a></li>
+            </ul>
+        </div>
+        <hr class="sidebar-divider">
+        <div class="sidebar-heading">
+            Tools
+        </div>
+        <div class="nav-item">
+            <a class="nav-link" href="/reload">
+                <i class="bi bi-arrow-clockwise"></i>
+                <span>Reload Reports</span>
+            </a>
+        </div>
+        <div class="nav-item">
+            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                <i class="bi bi-gear"></i>
+                <span>Settings</span>
+            </a>
+        </div>
+        
+        <div class="version-info">
+            DMARCus v{{ version }}
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- Topbar Compatta -->
+        <nav class="navbar navbar-expand navbar-light topbar-compact">
+            <div class="d-flex align-items-center ms-auto">
+                <!-- Notifiche -->
+                <div class="nav-item dropdown compact-notification">
+                    <a class="nav-link position-relative" href="#" id="alertsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-bell-fill"></i>
+                        <span class="badge badge-danger badge-counter">3+</span>
+                    </a>
+                    <div class="dropdown-list dropdown-menu dropdown-menu-end shadow animated--grow-in" aria-labelledby="alertsDropdown">
+                        <h6 class="dropdown-header bg-primary text-white">
+                            Alerts Center
+                        </h6>
+                        <a class="dropdown-item d-flex align-items-center" href="#">
+                            <div class="mr-3">
+                                <div class="icon-circle bg-danger">
+                                    <i class="bi bi-exclamation-triangle text-white"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="small text-gray-500">December 12, 2023</div>
+                                <span class="font-weight-bold">High failure rate detected for example.com</span>
+                            </div>
+                        </a>
+                        <a class="dropdown-item d-flex align-items-center" href="#">
+                            <div class="mr-3">
+                                <div class="icon-circle bg-success">
+                                    <i class="bi bi-check-circle text-white"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="small text-gray-500">December 7, 2023</div>
+                                Policy updated for acme.com
+                            </div>
+                        </a>
+                        <a class="dropdown-item text-center small text-gray-500" href="#">Show All Alerts</a>
+                    </div>
+                </div>
+                
+                <!-- Utente -->
+                <div class="nav-item dropdown compact-user ms-2">
+                    <a class="nav-link" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <img class="user-avatar-sm" src="https://source.unsplash.com/QAB-WJcbgJk/60x60" alt="User profile">
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-end shadow animated--grow-in" aria-labelledby="userDropdown">
+                        <div class="dropdown-header">
+                            <div class="d-flex align-items-center">
+                                <img class="rounded-circle me-2" src="https://source.unsplash.com/QAB-WJcbgJk/60x60" width="40" height="40" alt="User">
+                                <div>
+                                    <div class="fw-bold">Admin User</div>
+                                    <small class="text-muted">Administrator</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="#">
+                            <i class="bi bi-person-fill me-2 text-primary"></i>
+                            Profile
+                        </a>
+                        <a class="dropdown-item" href="#">
+                            <i class="bi bi-gear-fill me-2 text-primary"></i>
+                            Settings
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">
+                            <i class="bi bi-box-arrow-right me-2 text-primary"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Tema -->
+                <div class="nav-item compact-theme ms-2">
+                    <a class="nav-link theme-toggle">
+                        <i class="bi bi-moon-fill"></i>
+                    </a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container-fluid main-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show fade-in" role="alert">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-{{ 'check-circle-fill' if category == 'success' else 'exclamation-triangle-fill' }} me-2"></i>
+                                <div>{{ message }}</div>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <div class="card shadow mb-4 upload-card fade-in">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">Upload DMARC Report</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="/upload" enctype="multipart/form-data" id="uploadForm">
+                        <div class="mb-4 text-center">
+                            <i class="bi bi-cloud-arrow-up upload-icon"></i>
+                            <h3 class="mb-3">Upload DMARC Report</h3>
+                            <p class="text-muted">Select a DMARC report file in XML or GZIP format</p>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="dropzone" id="dropzone">
+                                <i class="bi bi-cloud-arrow-up dropzone-icon"></i>
+                                <p class="dropzone-text">Drag & drop your DMARC report here or click to browse</p>
+                                <input type="file" name="file" id="fileInput" class="d-none" accept=".xml,.xml.gz" required>
+                            </div>
+                            <div class="form-text mt-2">
+                                Supported formats: .xml (XML report) or .xml.gz (GZIP compressed XML)
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+                                <i class="bi bi-upload me-2"></i> Upload Report
+                            </button>
+                            <a href="/dashboard" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Modal-->
+    <div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="exampleModalLabel">Ready to Leave?</h5>
+                    <button class="close text-white" type="button" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">Select "Logout" below if you are ready to end your current session.</div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <a class="btn btn-primary" href="login.html">Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Theme toggle
+        document.querySelector('.theme-toggle').addEventListener('click', function() {
+            const htmlEl = document.documentElement;
+            const currentTheme = htmlEl.getAttribute('data-bs-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            htmlEl.setAttribute('data-bs-theme', newTheme);
+            this.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
+            
+            // Save preference to localStorage
+            localStorage.setItem('theme', newTheme);
+        });
+        
+        // Check for saved theme preference
+        if (localStorage.getItem('theme')) {
+            document.documentElement.setAttribute('data-bs-theme', localStorage.getItem('theme'));
+            document.querySelector('.theme-toggle i').className = localStorage.getItem('theme') === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+        }
+
+        // Dropzone functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('fileInput');
+            const submitBtn = document.getElementById('submitBtn');
+            const uploadForm = document.getElementById('uploadForm');
+
+            // Handle click on dropzone
+            dropzone.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // Handle file selection
+            fileInput.addEventListener('change', (e) => {
+                if (fileInput.files.length > 0) {
+                    updateDropzone(fileInput.files[0]);
+                    submitBtn.disabled = false;
+                }
+            });
+
+            // Handle drag over
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.add('active');
+            });
+
+            // Handle drag leave
+            ['dragleave', 'dragend'].forEach(type => {
+                dropzone.addEventListener(type, () => {
+                    dropzone.classList.remove('active');
+                });
+            });
+
+            // Handle drop
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('active');
+                
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    if (file.name.endsWith('.xml') || file.name.endsWith('.xml.gz')) {
+                        // Create new DataTransfer and add the file
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        fileInput.files = dataTransfer.files;
+                        
+                        updateDropzone(file);
+                        submitBtn.disabled = false;
+                    } else {
+                        alert('Only .xml and .xml.gz files are allowed.');
+                    }
+                }
+            });
+
+            // Update dropzone appearance with file info
+            function updateDropzone(file) {
+                const icon = dropzone.querySelector('.dropzone-icon');
+                const text = dropzone.querySelector('.dropzone-text');
+                
+                icon.className = 'bi bi-file-earmark-arrow-up dropzone-icon text-primary';
+                text.innerHTML = `<strong>${file.name}</strong><br>${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            }
+
+            // Form submission handler
+            uploadForm.addEventListener('submit', function(e) {
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    e.preventDefault();
+                    alert('Please select a file first!');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
