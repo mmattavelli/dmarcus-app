@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DMARCus Analyzer | SuperFigo Edition</title>
+    <title>DMARCus Analyzer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -16,11 +16,10 @@
 <body class="bg-light">
     <div class="sidebar bg-primary">
         <a class="sidebar-brand d-flex flex-column align-items-center" href="#">
-            <div class="sidebar-brand-icon">
-                <i class="bi bi-shield-lock"></i>
+            <div class="">
+                <img src="{{ url_for('static', filename='logo_dmarcus.png') }}" alt="DMARCus Logo" style="width: 100px; height: 100px;">
             </div>
             <div class="sidebar-brand-text mx-2">DMARCus</div>
-            <small class="text-white opacity-75">SuperFigo Edition</small>
         </a>
         <hr class="sidebar-divider my-0">
         <div class="nav-item">
@@ -37,6 +36,12 @@
             <a class="nav-link" href="/upload">
                 <i class="bi bi-upload"></i>
                 <span>Upload Report</span>
+            </a>
+        </div>
+        <div class="nav-item">
+            <a class="nav-link" href="/all_reports">
+                <i class="bi bi-list-ul"></i>
+                <span>All Reports</span>
             </a>
         </div>
         <div class="nav-item">
@@ -144,11 +149,11 @@
                 </div>
                 
                 <!-- Tema -->
-                <div class="nav-item compact-theme ms-2">
-                    <a class="nav-link theme-toggle">
-                        <i class="bi bi-moon-fill"></i>
-                    </a>
-                </div>
+            <div class="nav-item compact-theme ms-2">
+                <a class="nav-link theme-toggle">
+                    <i class="bi bi-moon-fill"></i>
+                </a>
+            </div>
             </div>
         </nav>
 
@@ -432,57 +437,6 @@
                 </div>
             </div>
             
-            <!-- Reports Table -->
-            <!-- Reports Table -->
-<div class="card shadow mb-4 fade-in delay-3">
-    <div class="card-header">
-        <h6 class="m-0 font-weight-bold text-primary">All Reports</h6>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover" id="dataTable" width="100%" cellspacing="0">
-                <thead class="thead-light">
-                    <tr>
-                        <th>Organization</th>
-                        <th>Domain</th>
-                        <th>Date Range</th>
-                        <th>Records</th>
-                        <th>Reports</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for group in grouped_reports %}
-                    <tr>
-                        <td>{{ group.org }}</td>
-                        <td>{{ group.domain }}</td>
-                        <td>{{ group.date_range.start }} to {{ group.date_range.end }}</td>
-                        <td>{{ group.total_records }}</td>
-                        <td>{{ group.total_reports }}</td>
-                        <td>
-                            <div class="progress progress-sm">
-                                <div class="progress-bar" role="progressbar" 
-                                     style="width: {{ group.pass_rate }}%" 
-                                     aria-valuenow="{{ group.pass_rate }}" 
-                                     aria-valuemin="0" 
-                                     aria-valuemax="100"></div>
-                            </div>
-                            <small>{{ group.pass_rate }}% passed</small>
-                        </td>
-                            <!-- Assicurati che il link usi l'org esatto dal report -->
-                            <td>
-                                <a href="/report/{{ group.org|urlencode }}" class="btn btn-sm btn-primary">
-                                    <i class="bi bi-eye me-1"></i> View
-                                </a>
-                            </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
             {% endif %}
         </div>
     </div>
@@ -547,17 +501,54 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Theme toggle
-        document.querySelector('.theme-toggle').addEventListener('click', function() {
-            const htmlEl = document.documentElement;
-            const currentTheme = htmlEl.getAttribute('data-bs-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            htmlEl.setAttribute('data-bs-theme', newTheme);
-            this.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
-            
-            // Save preference to localStorage
-            localStorage.setItem('theme', newTheme);
-        });
+    document.querySelector('.theme-toggle').addEventListener('click', function() {
+        const htmlEl = document.documentElement;
+        const currentTheme = htmlEl.getAttribute('data-bs-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
         
+        // Aggiorna l'attributo del tema
+        htmlEl.setAttribute('data-bs-theme', newTheme);
+        
+        // Aggiorna l'icona
+        const icon = this.querySelector('i');
+        icon.className = newTheme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+        
+        // Salva la preferenza
+        localStorage.setItem('theme', newTheme);
+        
+        // Aggiorna i colori delle card in tempo reale
+        updateCardBorders();
+    });
+        
+    function updateCardBorders() {
+        const cards = document.querySelectorAll('.card');
+        cards.forEach(card => {
+            if (document.documentElement.getAttribute('data-bs-theme') === 'dark') {
+                card.style.border = '1px solid #2d2d2d';
+            } else {
+                card.style.border = 'none';
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        const themeToggle = document.querySelector('.theme-toggle i');
+        
+        // Applica il tema salvato
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        
+        // Imposta l'icona corretta
+        if (savedTheme === 'dark') {
+            themeToggle.className = 'bi bi-sun-fill';
+        } else {
+            themeToggle.className = 'bi bi-moon-fill';
+        }
+        
+        // Aggiorna i bordi delle card
+        updateCardBorders();
+    });
+
         // Check for saved theme preference
         if (localStorage.getItem('theme')) {
             document.documentElement.setAttribute('data-bs-theme', localStorage.getItem('theme'));

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DMARC Report - {{ report.org }} | SuperFigo Edition</title>
+    <title>DMARC Report - {{ report.org }} </title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -202,11 +202,10 @@
 <body class="bg-light">
     <div class="sidebar bg-primary">
         <a class="sidebar-brand d-flex flex-column align-items-center" href="/dashboard">
-            <div class="sidebar-brand-icon">
-                <i class="bi bi-shield-lock"></i>
+            <div class="">
+                <img src="{{ url_for('static', filename='logo_dmarcus.png') }}" alt="DMARCus Logo" style="width: 100px; height: 100px;">
             </div>
             <div class="sidebar-brand-text mx-2">DMARCus</div>
-            <small class="text-white opacity-75">SuperFigo Edition</small>
         </a>
         <hr class="sidebar-divider my-0">
         <div class="nav-item">
