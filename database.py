@@ -27,13 +27,15 @@ def load_reports():
 
 def report_id_exists(report_id):
     """Check if a report with this ID already exists"""
-    if not report_id:  # Se report_id è None o stringa vuota
+    if not report_id:  # If report_id is None or empty string
         return False
         
     reports = load_reports()
-    return any(str(report.get('report_id')).strip().lower() == str(report_id).strip().lower() for report in reports)
+    return any(str(report.get('report_id', '')).strip().lower() == str(report_id).strip().lower() 
+           for report in reports)
 
 def add_report(report):
+    """Add a new report to the database if it doesn't exist already"""
     report_id = report.get('report_id')
     if report_id_exists(report_id):
         raise ValueError(f"Report with ID '{report_id}' already exists in the database")
@@ -41,12 +43,3 @@ def add_report(report):
     reports = load_reports()
     reports.append(report)
     save_reports(reports)
-
-def report_id_exists(report_id):
-    """Check if a report with this ID already exists"""
-    if not report_id:  # If report_id is None or empty string
-        return False
-        
-    reports = load_reports()
-    return any(str(report.get('report_id', '')).strip().lower() == str(report_id).strip().lower() 
-           for report in reports)

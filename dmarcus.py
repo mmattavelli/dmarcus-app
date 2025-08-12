@@ -65,6 +65,7 @@ def add_report(report):
     reports = load_reports()
     reports.append(report)
     save_reports(reports)
+    reports_data.append(report)
 
 # Carica i report all'avvio
 reports_data = load_reports()
@@ -285,6 +286,10 @@ def get_ip_addresses(report):
     for record in report['records']:
         ip_counts[record['source_ip']] += record['count']
     return ip_counts
+
+def report_id_exists(report_id):
+    """Check if a report with this ID already exists"""
+    return any(report['report_id'] == report_id for report in reports_data)
 
 def generate_stats(reports_data, time_filter='30days'):
     if not reports_data:
@@ -579,7 +584,46 @@ def report_detail(org_name, report_id=None):
     except Exception as e:
         flash(f"System error: {str(e)}", "error")
         return redirect(url_for('dashboard', time_filter='30days'))
+
+
+@app.route('/upload', methods=['GET', 'POST'])
+def upload_file():
+    if request.method == 'GET':
+        return render_template('upload.html')
     
+    # Se è una richiesta POST
+    file = request.files.get('files')
+    
+    if not file or file.filename == '':
+        flash('Nessun file selezionato', 'error')
+        return redirect(request.url)
+        
+    # Controllo estensione file
+    if not (file.filename.lower().endswith('.xml') or file.filename.lower().endswith('.xml.gz')):
+        flash('Formato file non supportato. Usare solo .xml o .xml.gz', 'error')
+        return redirect(request.url)
+    
+    try:
+        # Processa il file
+        report = parse_dmarc_report(file)
+        
+        if 'error' in report:
+            flash(f'Errore nel report: {report["error"]}', 'error')
+            return redirect(request.url)
+            
+        if report_id_exists(report['report_id']):
+            flash(f'Report ID {report["report_id"]} già esistente!', 'error')
+            return redirect(request.url)
+            
+        add_report(report)
+        flash('Report caricato con successo!', 'success')
+        return redirect(url_for('dashboard'))
+        
+    except Exception as e:
+        flash(f'Errore: {str(e)}', 'error')
+        return redirect(request.url)
+
+
 @app.route('/export/csv/<org_name>')
 @app.route('/export/csv/<org_name>/<report_id>')
 def export_csv(org_name, report_id=None):
@@ -664,6 +708,59 @@ def reload_reports():
     reports_data = load_reports()  # Usa la funzione esistente load_reports()
     flash('Reports reloaded successfully!', 'success')
     return redirect(url_for('dashboard'))
+
+@app.route('/all_reports')
+def all_reports():
+    try:
+        # Group reports by org and domain (stessa logica della dashboard)
+        org_domain_map = defaultdict(lambda: defaultdict(list))
+        for report in reports_data:
+            org_domain_map[report['org']][report['policy']['domain']].append(report)
+        
+        grouped_reports = []
+        for org, domains in org_domain_map.items():
+            for domain, reports in domains.items():
+                total_records = sum(len(r['records']) for r in reports)
+                pass_count = 0
+                total_auth = 0
+                report_details = []
+                
+                for report in reports:
+                    report_details.append({
+                        'id': reports_data.index(report),
+                        'date': report['date_range']['start']
+                    })
+                    for record in report['records']:
+                        total_auth += 2
+                        if record['spf'] == 'pass':
+                            pass_count += 1
+                        if record['dkim'] == 'pass':
+                            pass_count += 1
+                
+                pass_rate = round((pass_count / total_auth * 100), 1) if total_auth > 0 else 0
+                
+                grouped_reports.append({
+                    'org': org,
+                    'domain': domain,
+                    'total_reports': len(reports),
+                    'total_records': total_records,
+                    'pass_rate': pass_rate,
+                    'reports': report_details,
+                    'date_range': {
+                        'start': min(r['date_range']['start'] for r in reports),
+                        'end': max(r['date_range']['end'] for r in reports)
+                    }
+                })
+        
+        return render_template(
+            'all_reports.html',
+            grouped_reports=grouped_reports,
+            version=__version__
+        )
+
+    except Exception as e:
+        flash(f"An unexpected error occurred: {str(e)}", "error")
+        return redirect(url_for('dashboard'))
 
 if __name__ == '__main__':
     reports_data = load_reports()
