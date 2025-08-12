@@ -16,7 +16,7 @@ from flask import render_template
 
 # Setup GeoIP (commentato se non disponibile)
 # geoip_reader = geoip2.database.Reader('GeoLite2-City.mmdb')
-__version__ = "0.3"
+__version__ = "0.4"
 
 app = Flask(__name__)
 print("Static folder path:", app.static_folder)
