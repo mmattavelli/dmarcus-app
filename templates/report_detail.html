@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DMARC Report - {{ report.org }} </title>
+    <title>DMARC Report - {{ report.org }} | DMARCus</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -11,231 +11,192 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <style>
-        :root {
-            --primary-50: #f0f7ff;
-            --primary-100: #e0effe;
-            --primary-200: #b9dffd;
-            --primary-300: #7cc4fa;
-            --primary-400: #36a6f6;
-            --primary-500: #0c8ce7;
-            --primary-600: #006ec5;
-            --primary-700: #0157a0;
-            --primary-800: #064a83;
-            --primary-900: #0b3e6d;
-            --primary-950: #072749;
-            
-            --gradient-primary: linear-gradient(135deg, #006ec5 0%, #36a6f6 100%);
-            --gradient-danger: linear-gradient(135deg, #dc3545 0%, #ff6b6b 100%);
-            --gradient-success: linear-gradient(135deg, #28a745 0%, #5cdb95 100%);
-            --gradient-warning: linear-gradient(135deg, #ffc107 0%, #ffd166 100%);
-            --gradient-purple: linear-gradient(135deg, #6f42c1 0%, #9d65c9 100%);
-            
-            --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-            --shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-            --shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175);
-            
-            --border-radius: 0.5rem;
-            --border-radius-lg: 1rem;
-            --border-radius-xl: 2rem;
-        }
-
-        body {
-            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: #f8fafc;
-            color: #2d3748;
-            line-height: 1.6;
-        }
-
-        .content {
-            margin-left: 16rem;
-            padding: 2rem;
-            transition: all 0.3s;
-        }
-
-        .card {
-            border: none;
-            border-radius: var(--border-radius-lg);
-            box-shadow: var(--shadow-sm);
-            margin-bottom: 2rem;
-            background-color: white;
-            transition: all 0.3s;
-            overflow: hidden;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .card-header {
-            background-color: white;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            padding: 1.25rem 1.5rem;
-            font-weight: 600;
-            color: var(--primary-800);
-            border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0 !important;
-        }
-
-        .card-body {
-            padding: 1.5rem;
-        }
-
-        .chart-container {
-            position: relative;
-            height: 300px;
-            width: 100%;
-            margin: 0 auto;
-        }
-
-        .kpi-card {
-            border-left: 0.25rem solid var(--primary-500);
-            transition: all 0.3s;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .kpi-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow);
-        }
-
-        .kpi-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, rgba(0, 110, 197, 0.05) 0%, rgba(54, 166, 246, 0.05) 100%);
-            opacity: 0;
-            transition: all 0.3s;
-        }
-
-        .kpi-card:hover::before {
-            opacity: 1;
-        }
-
-        .icon-wrapper {
-            width: 3rem;
-            height: 3rem;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0, 110, 197, 0.1);
-            color: var(--primary-600);
-            font-size: 1.5rem;
-        }
-
-        .badge-success { background: var(--gradient-success); }
-        .badge-danger { background: var(--gradient-danger); }
-        .badge-warning { background: var(--gradient-warning); }
-        .badge-info { background: var(--gradient-primary); }
-        .badge-secondary { background: #6c757d; }
-
-        .table-responsive {
-            border-radius: var(--border-radius);
-            overflow: hidden;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .table {
-            margin-bottom: 0;
-        }
-
-        .table th {
-            background-color: var(--primary-50);
-            color: var(--primary-800);
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.75rem;
-            letter-spacing: 0.05rem;
-            border-top: none;
-            padding: 1rem 1.25rem;
-        }
-
-        .table td {
-            padding: 0.75rem 1.25rem;
-            vertical-align: middle;
-            border-top: 1px solid rgba(0, 0, 0, 0.03);
-        }
-
-        .table tr:hover td {
-            background-color: rgba(0, 110, 197, 0.03);
-        }
-
-        .progress {
-            height: 0.5rem;
-            border-radius: 0.25rem;
-            background-color: rgba(0, 0, 0, 0.05);
-        }
-
-        .progress-bar {
-            background: var(--gradient-primary);
-        }
-
-        .nav-tabs .nav-link {
-            border: none;
-            color: var(--primary-700);
-            font-weight: 500;
-            padding: 0.75rem 1.25rem;
-        }
-
-        .nav-tabs .nav-link.active {
-            color: var(--primary-600);
-            border-bottom: 3px solid var(--primary-500);
-            background: transparent;
-        }
-
-        .nav-tabs .nav-link:hover:not(.active) {
-            border-color: transparent;
-            color: var(--primary-800);
-        }
-
-        @media (max-width: 992px) {
-            .content {
-                margin-left: 0;
-            }
+        /* Stili specifici per i grafici nel tema scuro */
+        [data-bs-theme="dark"] .chartjs-render-monitor {
+            filter: brightness(0.85) contrast(1.2);
         }
     </style>
 </head>
 <body class="bg-light">
-    <div class="sidebar bg-primary">
-        <a class="sidebar-brand d-flex flex-column align-items-center" href="/dashboard">
+    <!-- Mobile Menu Button -->
+    <button class="btn btn-primary mobile-menu-btn d-none position-fixed" style="top: 1rem; left: 1rem; z-index: 1050;">
+        <i class="bi bi-list"></i>
+    </button>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-brand d-flex flex-column align-items-center justify-content-center py-4 mb-2">
             <div class="">
                 <img src="{{ url_for('static', filename='logo_dmarcus.png') }}" alt="DMARCus Logo" style="width: 100px; height: 100px;">
             </div>
-            <div class="sidebar-brand-text mx-2">DMARCus</div>
-        </a>
+            <div class="sidebar-brand-text mx-2 text-white">DMARCus</div>
+        </div>
         <hr class="sidebar-divider my-0">
+        
+        <!-- Nav Items -->
         <div class="nav-item">
             <a class="nav-link" href="/dashboard">
                 <i class="bi bi-speedometer2"></i>
                 <span>Dashboard</span>
             </a>
         </div>
-        <hr class="sidebar-divider">
+        
         <div class="nav-item">
             <a class="nav-link active" href="#">
                 <i class="bi bi-file-earmark-text"></i>
-                <span>Report Details</span>
+                <span>Reports</span>
             </a>
         </div>
+        
+        <div class="nav-item">
+            <a class="nav-link" href="/domains">
+                <i class="bi bi-globe"></i>
+                <span>Domains</span>
+            </a>
+        </div>
+        
+        <div class="nav-item">
+            <a class="nav-link" href="/settings">
+                <i class="bi bi-gear"></i>
+                <span>Settings</span>
+            </a>
+        </div>
+        
+        <hr class="sidebar-divider">
+        
+        <div class="sidebar-heading">Tools</div>
+        
+        <div class="nav-item">
+            <a class="nav-link" href="/analyzer">
+                <i class="bi bi-search"></i>
+                <span>Message Analyzer</span>
+            </a>
+        </div>
+        
+        <div class="nav-item">
+            <a class="nav-link" href="/policy-generator">
+                <i class="bi bi-shield-plus"></i>
+                <span>Policy Generator</span>
+            </a>
+        </div>
+        
+        <hr class="sidebar-divider d-none d-md-block">
+        
+        <div class="text-center d-none d-md-inline">
+            <button class="rounded-circle border-0" id="sidebarToggle">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+        </div>
+        
         <div class="version-info">
             DMARCus v{{ version }}
         </div>
     </div>
 
-<!-- Sostituisci la parte superiore del content -->
+    <!-- Topbar Compatta -->
+    <nav class="navbar navbar-expand navbar-light topbar-compact">
+        <div class="d-flex align-items-center ms-auto">
+            <!-- Notifiche -->
+            <div class="nav-item dropdown compact-notification">
+                <a class="nav-link position-relative" href="#" id="alertsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-bell-fill"></i>
+                    <span class="badge badge-danger badge-counter">3+</span>
+                </a>
+                <div class="dropdown-list dropdown-menu dropdown-menu-end shadow animated--grow-in" aria-labelledby="alertsDropdown">
+                    <h6 class="dropdown-header bg-primary text-white">
+                        Alerts Center
+                    </h6>
+                    <a class="dropdown-item d-flex align-items-center" href="#">
+                        <div class="mr-3">
+                            <div class="icon-circle bg-danger">
+                                <i class="bi bi-exclamation-triangle text-white"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="small text-gray-500">December 12, 2023</div>
+                            <span class="font-weight-bold">High failure rate detected for example.com</span>
+                        </div>
+                    </a>
+                    <a class="dropdown-item d-flex align-items-center" href="#">
+                        <div class="mr-3">
+                            <div class="icon-circle bg-success">
+                                <i class="bi bi-check-circle text-white"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="small text-gray-500">December 7, 2023</div>
+                            Policy updated for acme.com
+                        </div>
+                    </a>
+                    <a class="dropdown-item text-center small text-gray-500" href="#">Show All Alerts</a>
+                </div>
+            </div>
+            
+            <!-- Utente -->
+            <div class="nav-item dropdown compact-user ms-2">
+                <a class="nav-link" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <img class="user-avatar-sm" src="https://source.unsplash.com/QAB-WJcbgJk/60x60" alt="User profile">
+                </a>
+                <div class="dropdown-menu dropdown-menu-end shadow animated--grow-in" aria-labelledby="userDropdown">
+                    <div class="dropdown-header">
+                        <div class="d-flex align-items-center">
+                            <img class="rounded-circle me-2" src="https://source.unsplash.com/QAB-WJcbgJk/60x60" width="40" height="40" alt="User">
+                            <div>
+                                <div class="fw-bold">Admin User</div>
+                                <small class="text-muted">Administrator</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="#">
+                        <i class="bi bi-person-fill me-2 text-primary"></i>
+                        Profile
+                    </a>
+                    <a class="dropdown-item" href="#">
+                        <i class="bi bi-gear-fill me-2 text-primary"></i>
+                        Settings
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">
+                        <i class="bi bi-box-arrow-right me-2 text-primary"></i>
+                        Logout
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Toggle Tema -->
+            <div class="nav-item compact-theme ms-2">
+                <a class="nav-link theme-toggle">
+                    <i class="bi bi-moon-fill"></i>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
     <div class="content">
-        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <!-- Page Header -->
+        <div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-4">
             <div>
-                <h1 class="h3 mb-0 text-gray-800">Report Details</h1>
-                <small class="text-muted">{{ org_name }} - {{ report.policy.domain }}</small>
-                
-                <!-- Dropdown per selezionare report -->
+                <div class="d-flex align-items-center">
+                    <h1 class="h3 mb-0 text-gray-800">Report Analysis</h1>
+                    <span class="badge bg-primary-100 text-primary-800 ms-2">{{ report.policy.p|upper }} Policy</span>
+                </div>
                 <div class="mt-2">
-                    <select id="reportSelector" class="form-select form-select-sm" style="width: auto;">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-building me-1 text-muted"></i>
+                        <small class="text-muted">{{ org_name }} - {{ report.policy.domain }}</small>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-calendar-range me-1 text-muted"></i>
+                        <small class="text-muted">{{ report.date_range.start }} to {{ report.date_range.end }}</small>
+                    </div>
+                </div>
+                
+                <!-- Report Selector -->
+                <div class="mt-3">
+                    <label for="reportSelector" class="form-label small text-muted text-uppercase fw-bold">Select Report</label>
+                    <select id="reportSelector" class="form-select form-select-sm" style="width: 100%; max-width: 400px;">
                         <option value="all" {% if selected_report_id == 'all' %}selected{% endif %}>
                             All Reports (Aggregated)
                         </option>
@@ -247,19 +208,25 @@
                     </select>
                 </div>
             </div>
-            <div class="d-flex mt-3 mt-sm-0">
-                <a href="/dashboard" class="btn btn-outline-primary me-2">
-                    <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
-                </a>
-                <a href="/export/csv/{{ selected_report_id if selected_report_id != 'all' else org_name }}" 
-                class="btn btn-primary">
-                    <i class="bi bi-download me-1"></i> Export Report
-                </a>
+            <div class="d-flex mt-3 mt-md-0">
+                <div class="btn-group" role="group">
+                    <a href="/dashboard" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-left me-1"></i> Dashboard
+                    </a>
+                    <a href="/export/csv/{{ selected_report_id if selected_report_id != 'all' else org_name }}" 
+                       class="btn btn-primary">
+                        <i class="bi bi-download me-1"></i> Export
+                    </a>
+                    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#helpModal">
+                        <i class="bi bi-question-circle"></i>
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-lg-4">
+<!-- Key Metrics -->
+        <div class="row mb-4">
+            <div class="col-md-3">
                 <div class="card kpi-card">
                     <div class="card-body">
                         <div class="d-flex align-items-center mb-3">
@@ -267,7 +234,7 @@
                                 <i class="bi bi-shield-check"></i>
                             </div>
                             <div>
-                                <h5 class="mb-0">{{ pass_rate }}%</h5>
+                                <h3 class="mb-0">{{ pass_rate }}%</h3>
                                 <small class="text-muted">Authentication Score</small>
                             </div>
                         </div>
@@ -277,59 +244,134 @@
                         </div>
                     </div>
                 </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card kpi-card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-wrapper me-3" style="background: rgba(40, 167, 69, 0.1); color: #28a745;">
+                                <i class="bi bi-check-circle"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-0">{{ auth_data.both_pass + auth_data.spf_pass + auth_data.dkim_pass }}</h3>
+                                <small class="text-muted">Passed Checks</small>
+                            </div>
+                        </div>
+                        <div class="progress progress-sm">
+                            <div class="progress-bar bg-success" role="progressbar" 
+                                 style="width: {{ ((auth_data.both_pass + auth_data.spf_pass + auth_data.dkim_pass) / report.records|length * 100) if report.records|length > 0 else 0 }}%" 
+                                 aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card kpi-card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-wrapper me-3" style="background: rgba(220, 53, 69, 0.1); color: #dc3545;">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-0">{{ auth_data.fail + auth_data.alignment_fail }}</h3>
+                                <small class="text-muted">Failed Checks</small>
+                            </div>
+                        </div>
+                        <div class="progress progress-sm">
+                            <div class="progress-bar bg-danger" role="progressbar" 
+                                 style="width: {{ ((auth_data.fail + auth_data.alignment_fail) / report.records|length * 100) if report.records|length > 0 else 0 }}%" 
+                                 aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card kpi-card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-wrapper me-3" style="background: rgba(108, 117, 125, 0.1); color: #6c757d;">
+                                <i class="bi bi-envelope"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-0">{{ report.records|length }}</h3>
+                                <small class="text-muted">Total Messages</small>
+                            </div>
+                        </div>
+                        <div class="progress progress-sm">
+                            <div class="progress-bar bg-secondary" role="progressbar" style="width: 100%" 
+                                aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="m-0 font-weight-bold text-primary">Report Metadata</h6>
+        <div class="row">
+            <!-- Left Column - Summary Cards -->
+            <div class="col-lg-4">
+                <!-- Report Metadata -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="bi bi-info-circle me-2"></i>Report Metadata
+                        </h6>
+                        <span class="badge bg-primary">{{ report.report_id|truncate(10) }}</span>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <small class="text-muted text-uppercase">Organization</small>
+                            <small class="text-muted text-uppercase fw-bold">Organization</small>
                             <p class="mb-0">{{ report.org }}</p>
                         </div>
                         <div class="mb-3">
-                            <small class="text-muted text-uppercase">Report ID</small>
+                            <small class="text-muted text-uppercase fw-bold">Report ID</small>
                             <p class="mb-0">{{ report.report_id }}</p>
                         </div>
                         <div class="mb-3">
-                            <small class="text-muted text-uppercase">Date Range</small>
+                            <small class="text-muted text-uppercase fw-bold">Date Range</small>
                             <p class="mb-0">{{ report.date_range.start }} to {{ report.date_range.end }}</p>
                         </div>
                         <div class="mb-3">
-                            <small class="text-muted text-uppercase">Total Records</small>
-                            <p class="mb-0">{{ report.records|length }}</p>
+                            <small class="text-muted text-uppercase fw-bold">Total Records</small>
+                            <p class="mb-0">{{ report.records|length }} messages</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="m-0 font-weight-bold text-primary">Policy Settings</h6>
+                <!-- Policy Settings -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="bi bi-shield-lock me-2"></i>Policy Settings
+                        </h6>
+                        <span class="badge bg-{% if report.policy.p == 'none' %}warning{% elif report.policy.p == 'quarantine' %}info{% else %}danger{% endif %}">
+                            {{ report.policy.p|upper }}
+                        </span>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <small class="text-muted text-uppercase">Domain</small>
+                            <small class="text-muted text-uppercase fw-bold">Domain</small>
                             <p class="mb-0">{{ report.policy.domain }}</p>
                         </div>
                         <div class="mb-3">
-                            <small class="text-muted text-uppercase">Policy</small>
-                            <p class="mb-0">{{ report.policy.p|upper }} ({{ report.policy.pct }}% of messages)</p>
+                            <small class="text-muted text-uppercase fw-bold">Policy</small>
+                            <p class="mb-0">{{ report.policy.p|upper }} (applied to {{ report.policy.pct }}% of messages)</p>
                         </div>
                         <div class="mb-3">
-                            <small class="text-muted text-uppercase">Subdomain Policy</small>
+                            <small class="text-muted text-uppercase fw-bold">Subdomain Policy</small>
                             <p class="mb-0">{{ report.policy.sp|upper if report.policy.sp != 'N/A' else 'Same as domain' }}</p>
                         </div>
                         <div class="mb-3">
-                            <small class="text-muted text-uppercase">Alignment Mode</small>
+                            <small class="text-muted text-uppercase fw-bold">Alignment Mode</small>
                             <p class="mb-0">
-                                DKIM: {{ report.policy.adkim|upper }}, 
-                                SPF: {{ report.policy.aspf|upper }}
+                                <span class="badge bg-info">DKIM: {{ report.policy.adkim|upper }}</span>
+                                <span class="badge bg-info ms-1">SPF: {{ report.policy.aspf|upper }}</span>
                             </p>
                         </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Right Column - Main Report Content -->
             <div class="col-lg-8">
                 <div class="card">
                     <div class="card-header">
@@ -353,34 +395,75 @@
                     </div>
                     <div class="card-body">
                         <div class="tab-content" id="reportTabsContent">
+                            <!-- Summary Tab -->
                             <div class="tab-pane fade show active" id="summary" role="tabpanel" aria-labelledby="summary-tab">
                                 <div class="row">
                                     <div class="col-md-6 mb-4">
-                                        <div class="chart-container">
-                                            <canvas id="authChart"></canvas>
+                                        <div class="card h-100">
+                                            <div class="card-header bg-white">
+                                                <h6 class="m-0 font-weight-bold text-primary">Authentication Results</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="chart-container">
+                                                    <canvas id="authChart"></canvas>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="col-md-6 mb-4">
-                                        <div class="chart-container">
-                                            <canvas id="dispositionChart"></canvas>
+                                        <div class="card h-100">
+                                            <div class="card-header bg-white">
+                                                <h6 class="m-0 font-weight-bold text-primary">Disposition Analysis</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="chart-container">
+                                                    <canvas id="dispositionChart"></canvas>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="col-md-6 mb-4">
-                                        <div class="chart-container">
-                                            <canvas id="internalChart"></canvas>
+                                        <div class="card h-100">
+                                            <div class="card-header bg-white">
+                                                <h6 class="m-0 font-weight-bold text-primary">Internal vs External</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="chart-container">
+                                                    <canvas id="internalChart"></canvas>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="col-md-6 mb-4">
-                                        <div class="chart-container">
-                                            <canvas id="ipChart"></canvas>
+                                        <div class="card h-100">
+                                            <div class="card-header bg-white">
+                                                <h6 class="m-0 font-weight-bold text-primary">Top Sending IPs</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="chart-container">
+                                                    <canvas id="ipChart"></canvas>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             
+                            <!-- Records Tab -->
                             <div class="tab-pane fade" id="records" role="tabpanel" aria-labelledby="records-tab">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <input type="text" id="recordSearch" class="form-control form-control-sm" placeholder="Search records..." style="width: 250px;">
+                                    </div>
+                                    <div>
+                                        <small class="text-muted me-2">{{ report.records|length }} records</small>
+                                        <button class="btn btn-sm btn-outline-secondary" id="toggleFailedOnly">
+                                            <i class="bi bi-filter-circle"></i> Show Failed Only
+                                        </button>
+                                    </div>
+                                </div>
                                 <div class="table-responsive">
-                                    <table class="table table-hover">
+                                    <table class="table table-hover" id="recordsTable">
                                         <thead>
                                             <tr>
                                                 <th>Source IP</th>
@@ -394,12 +477,13 @@
                                         </thead>
                                         <tbody>
                                             {% for record in report.records %}
-                                            <tr>
+                                            <tr class="{% if record.spf != 'pass' or record.dkim != 'pass' %}table-warning{% endif %}">
                                                 <td>
-                                                    {{ record.source_ip }}
+                                                    <span class="d-block">{{ record.source_ip }}</span>
                                                     {% if record.is_internal %}
                                                         <span class="badge badge-info">Internal</span>
                                                     {% endif %}
+                                                    <small class="text-muted d-block">{{ record.location }}</small>
                                                 </td>
                                                 <td>{{ record.count }}</td>
                                                 <td>
@@ -434,7 +518,11 @@
                                                         <span class="badge bg-secondary">N/A</span>
                                                     {% endif %}
                                                 </td>
-                                                <td>{{ record.disposition }}</td>
+                                                <td>
+                                                    <span class="badge bg-{% if record.disposition == 'pass' %}success{% elif record.disposition == 'quarantine' %}warning{% else %}danger{% endif %}">
+                                                        {{ record.disposition }}
+                                                    </span>
+                                                </td>
                                                 <td>{{ record.header_from }}</td>
                                             </tr>
                                             {% endfor %}
@@ -443,9 +531,18 @@
                                 </div>
                             </div>
                             
+                            <!-- IP Analysis Tab -->
                             <div class="tab-pane fade" id="ips" role="tabpanel" aria-labelledby="ips-tab">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <input type="text" id="ipSearch" class="form-control form-control-sm" placeholder="Search IPs..." style="width: 250px;">
+                                    </div>
+                                    <div>
+                                        <small class="text-muted">{{ ip_addresses|length }} unique IPs</small>
+                                    </div>
+                                </div>
                                 <div class="table-responsive">
-                                    <table class="table table-hover">
+                                    <table class="table table-hover" id="ipTable">
                                         <thead>
                                             <tr>
                                                 <th>IP Address</th>
@@ -462,14 +559,14 @@
                                             {% set dkim_pass = ip_records|selectattr('dkim', 'equalto', 'pass')|list|length %}
                                             {% set pass_rate = ((spf_pass + dkim_pass) / (ip_records|length * 2) * 100) if ip_records|length > 0 else 0 %}
                                             <tr>
-                                                <td>{{ ip }}</td>
-                                                <td>{{ count }}</td>
                                                 <td>
-                                                    {{ ip_records[0].location }}
+                                                    <span class="d-block">{{ ip }}</span>
                                                     {% if ip_records[0].is_internal %}
                                                         <span class="badge bg-info">Internal</span>
                                                     {% endif %}
                                                 </td>
+                                                <td>{{ count }}</td>
+                                                <td>{{ ip_records[0].location }}</td>
                                                 <td>
                                                     <div class="progress progress-sm">
                                                         <div class="progress-bar" role="progressbar" 
@@ -483,7 +580,9 @@
                                                 <td>
                                                     {% set dispositions = ip_records|groupby('disposition') %}
                                                     {% for disp, records in dispositions %}
-                                                        <span class="badge bg-secondary">{{ disp }}: {{ records|length }}</span>
+                                                        <span class="badge bg-{% if disp == 'pass' %}success{% elif disp == 'quarantine' %}warning{% else %}danger{% endif %}">
+                                                            {{ disp }}: {{ records|length }}
+                                                        </span>
                                                     {% endfor %}
                                                 </td>
                                             </tr>
@@ -499,9 +598,184 @@
         </div>
     </div>
 
+    <!-- Help Modal -->
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="helpModalLabel">DMARC Report Help</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="accordion" id="helpAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingOne">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                                    Understanding DMARC Reports
+                                </button>
+                            </h2>
+                            <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <p>DMARC (Domain-based Message Authentication, Reporting & Conformance) reports provide visibility into who is sending email on behalf of your domain and whether those emails are passing authentication checks.</p>
+                                    <p>Key components of a DMARC report:</p>
+                                    <ul>
+                                        <li><strong>SPF (Sender Policy Framework):</strong> Verifies the sender's IP address is authorized to send email for the domain.</li>
+                                        <li><strong>DKIM (DomainKeys Identified Mail):</strong> Uses cryptographic signatures to verify the email wasn't altered in transit.</li>
+                                        <li><strong>Alignment:</strong> Checks if the domains used in SPF and DKIM match the domain in the From header.</li>
+                                        <li><strong>Disposition:</strong> Shows what action was taken (none, quarantine, reject) based on your DMARC policy.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingTwo">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                    Interpreting the Data
+                                </button>
+                            </h2>
+                            <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <p>This report details email authentication results for your domain over a specific time period.</p>
+                                    <p><strong>Key metrics to monitor:</strong></p>
+                                    <ul>
+                                        <li><strong>Authentication Score:</strong> Percentage of emails passing both SPF and DKIM checks with proper alignment.</li>
+                                        <li><strong>Failed Checks:</strong> Emails failing authentication that may be spoofed or malicious.</li>
+                                        <li><strong>IP Analysis:</strong> Identifies which IP addresses are sending email for your domain and their authentication success rates.</li>
+                                    </ul>
+                                    <p>Regularly review these reports to identify unauthorized senders and adjust your email authentication policies accordingly.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Got it!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Modal -->
+    <div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="exampleModalLabel">Ready to Leave?</h5>
+                    <button class="close text-white" type="button" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">Select "Logout" below if you are ready to end your current session.</div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <a class="btn btn-primary" href="login.html">Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Theme toggle - Stessa implementazione di upload.html
+        document.querySelector('.theme-toggle').addEventListener('click', function() {
+            const htmlEl = document.documentElement;
+            const currentTheme = htmlEl.getAttribute('data-bs-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            htmlEl.setAttribute('data-bs-theme', newTheme);
+            this.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
+            
+            localStorage.setItem('theme', newTheme);
+            updateChartColors(newTheme);
+        });
         
+        // Verifica la preferenza del tema al caricamento
+        if (localStorage.getItem('theme')) {
+            const savedTheme = localStorage.getItem('theme');
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+            document.querySelector('.theme-toggle i').className = savedTheme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+        }
+
+        // Inizializzazione grafici con colori dinamici
+        function getChartColors(theme) {
+            return theme === 'dark' ? {
+                textColor: '#ffffff',
+                gridColor: 'rgba(255, 255, 255, 0.1)',
+                backgroundColors: [
+                    'rgba(40, 167, 69, 0.8)',
+                    'rgba(23, 162, 184, 0.8)',
+                    'rgba(111, 66, 193, 0.8)',
+                    'rgba(255, 193, 7, 0.8)',
+                    'rgba(220, 53, 69, 0.8)'
+                ],
+                hoverColors: [
+                    'rgba(40, 167, 69, 1)',
+                    'rgba(23, 162, 184, 1)',
+                    'rgba(111, 66, 193, 1)',
+                    'rgba(255, 193, 7, 1)',
+                    'rgba(220, 53, 69, 1)'
+                ]
+            } : {
+                textColor: '#666',
+                gridColor: 'rgba(0, 0, 0, 0.1)',
+                backgroundColors: [
+                    '#28a745',
+                    '#17a2b8',
+                    '#6f42c1',
+                    '#ffc107',
+                    '#dc3545'
+                ],
+                hoverColors: [
+                    '#5cdb95',
+                    '#5bc0de',
+                    '#9d65c9',
+                    '#ffd166',
+                    '#ff6b6b'
+                ]
+            };
+        }
+
+        // Funzione per aggiornare i colori dei grafici in base al tema
+        function updateChartColors(theme) {
+            if (theme === 'dark') {
+                Chart.defaults.color = '#ffffff';
+                Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+            } else {
+                Chart.defaults.color = '#666';
+                Chart.defaults.borderColor = 'rgba(0, 0, 0, 0.1)';
+            }
+
+            // Ridisponi i grafici esistenti
+            if (window.authChart) window.authChart.update();
+            if (window.dispositionChart) window.dispositionChart.update();
+            if (window.internalChart) window.internalChart.update();
+            if (window.ipChart) window.ipChart.update();
+        }
+
+        // Mobile menu toggle
+        document.querySelector('.mobile-menu-btn').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+
+        // Toggle Sidebar
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.body.classList.toggle('sidebar-toggled');
+            document.querySelector('.sidebar').classList.toggle('toggled');
+            
+            if (document.querySelector('.sidebar').classList.contains('toggled')) {
+                document.querySelector('.sidebar .collapse').classList.remove('show');
+            }
+        });
+
+        // Chiudi il menu mobile quando si clicca su un link
+        document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+            link.addEventListener('click', function() {
+                if (window.innerWidth < 992) {
+                    document.querySelector('.sidebar').classList.remove('active');
+                }
+            });
+        });
+
+        // Report selector
         document.getElementById('reportSelector').addEventListener('change', function() {
             const reportId = this.value;
             const orgName = '{{ org_name }}';
@@ -512,9 +786,60 @@
                 window.location.href = `/report/${orgName}/${reportId}`;
             }
         });
+        // Record search functionality
+        document.getElementById('recordSearch').addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#recordsTable tbody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
 
+        // IP search functionality
+        document.getElementById('ipSearch').addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#ipTable tbody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+
+        // Toggle failed only records
+        document.getElementById('toggleFailedOnly').addEventListener('click', function() {
+            const showFailedOnly = this.classList.toggle('active');
+            const rows = document.querySelectorAll('#recordsTable tbody tr');
+            
+            if (showFailedOnly) {
+                this.innerHTML = '<i class="bi bi-filter-circle-fill"></i> Show All';
+                rows.forEach(row => {
+                    if (!row.classList.contains('table-warning')) {
+                        row.style.display = 'none';
+                    }
+                });
+            } else {
+                this.innerHTML = '<i class="bi bi-filter-circle"></i> Show Failed Only';
+                rows.forEach(row => {
+                    row.style.display = '';
+                });
+            }
+        });
+
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Authentication Results Chart
         const authCtx = document.getElementById('authChart').getContext('2d');
-        new Chart(authCtx, {
+        const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+        const colors = getChartColors(currentTheme);
+
+        window.authChart = new Chart(authCtx, {
             type: 'doughnut',
             data: {
                 labels: ['Both Pass', 'SPF Only', 'DKIM Only', 'Alignment Fail', 'Failures'],
@@ -526,57 +851,37 @@
                         {{ auth_data.alignment_fail }},
                         {{ auth_data.fail }}
                     ],
-                    backgroundColor: [
-                        '#28a745',
-                        '#17a2b8',
-                        '#6f42c1',
-                        '#ffc107',
-                        '#dc3545'
-                    ],
-                    hoverBackgroundColor: [
-                        '#5cdb95',
-                        '#5bc0de',
-                        '#9d65c9',
-                        '#ffd166',
-                        '#ff6b6b'
-                    ],
-                    borderWidth: 0,
-                    hoverBorderColor: "rgba(255, 255, 255, 0.8)",
+                    backgroundColor: colors.backgroundColors,
+                    hoverBackgroundColor: colors.hoverColors,
+                    borderWidth: 0
                 }]
             },
             options: {
                 maintainAspectRatio: false,
                 cutout: '70%',
                 plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: colors.textColor,
+                            usePointStyle: true,
+                            padding: 20,
+                            font: {
+                                family: 'Poppins',
+                                size: 13
+                            }
+                        }
+                    },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        backgroundColor: currentTheme === 'dark' ? 'rgba(0, 0, 0, 0.9)' : 'rgba(0, 0, 0, 0.8)',
                         bodyColor: "#fff",
                         borderColor: 'rgba(255, 255, 255, 0.1)',
-                        borderWidth: 1,
-                        padding: 12,
-                        displayColors: true,
-                        caretPadding: 10,
                         callbacks: {
                             label: function(context) {
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const value = context.raw;
                                 const percentage = Math.round((value / total) * 100);
                                 return ` ${context.label}: ${value} (${percentage}%)`;
-                            }
-                        },
-                        bodyFont: {
-                            family: 'Poppins',
-                            size: 13
-                        }
-                    },
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 20,
-                            font: {
-                                family: 'Poppins',
-                                size: 13
                             }
                         }
                     }
@@ -595,8 +900,7 @@
                     backgroundColor: [
                         '#006ec5', '#36a6f6', '#7cc4fa', '#b9dffd', '#e0effe'
                     ],
-                    borderWidth: 0,
-                    hoverBorderColor: "rgba(255, 255, 255, 0.8)",
+                    borderWidth: 0
                 }]
             },
             options: {
@@ -655,8 +959,7 @@
                     hoverBackgroundColor: [
                         '#0157a0', '#0c8ce7'
                     ],
-                    borderWidth: 0,
-                    hoverBorderColor: "rgba(255, 255, 255, 0.8)",
+                    borderWidth: 0
                 }]
             },
             options: {
@@ -710,12 +1013,11 @@
                     backgroundColor: [
                         '#006ec5', '#36a6f6', '#7cc4fa', '#b9dffd', '#e0effe'
                     ],
-                    borderColor: 'rgba(255, 255, 255, 0.8)',
                     borderWidth: 0,
                     borderRadius: 4,
                     hoverBackgroundColor: [
                         '#0157a0', '#0c8ce7', '#36a6f6', '#7cc4fa', '#b9dffd'
-                    ],
+                    ]
                 }]
             },
             options: {

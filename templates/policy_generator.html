@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMARC Policy Generator | DMARCus</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .policy-card {
+            border-left: 4px solid var(--primary-500);
+        }
+        .copy-btn {
+            transition: all 0.2s;
+        }
+        .copy-btn:hover {
+            transform: translateY(-2px);
+        }
+        .form-section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--bs-border-color);
+        }
+        .form-section:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-brand d-flex flex-column align-items-center justify-content-center py-4 mb-2">
+            <div class="">
+                <img src="{{ url_for('static', filename='logo_dmarcus.png') }}" alt="DMARCus Logo" style="width: 100px; height: 100px;">
+            </div>
+            <div class="sidebar-brand-text mx-2 text-white">DMARCus</div>
+        </div>
+        <hr class="sidebar-divider my-0">
+        
+        <!-- Nav Items -->
+        <div class="nav-item">
+            <a class="nav-link" href="/dashboard">
+                <i class="bi bi-speedometer2"></i>
+                <span>Dashboard</span>
+            </a>
+        </div>
+        
+        <div class="nav-item">
+            <a class="nav-link" href="/all_reports">
+                <i class="bi bi-file-earmark-text"></i>
+                <span>Reports</span>
+            </a>
+        </div>
+        
+        <div class="nav-item">
+            <a class="nav-link" href="/domains">
+                <i class="bi bi-globe"></i>
+                <span>Domains</span>
+            </a>
+        </div>
+        
+        <div class="nav-item">
+            <a class="nav-link" href="/settings">
+                <i class="bi bi-gear"></i>
+                <span>Settings</span>
+            </a>
+        </div>
+        
+        <hr class="sidebar-divider">
+        
+        <div class="sidebar-heading">Tools</div>
+        
+        <div class="nav-item">
+            <a class="nav-link" href="/analyzer">
+                <i class="bi bi-search"></i>
+                <span>Message Analyzer</span>
+            </a>
+        </div>
+        
+        <div class="nav-item">
+            <a class="nav-link active" href="/policy-generator">
+                <i class="bi bi-shield-plus"></i>
+                <span>Policy Generator</span>
+            </a>
+        </div>
+        
+        <hr class="sidebar-divider d-none d-md-block">
+        
+        <div class="text-center d-none d-md-inline">
+            <button class="rounded-circle border-0" id="sidebarToggle">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+        </div>
+        
+        <div class="version-info">
+            DMARCus v{{ version }}
+        </div>
+    </div>
+
+    <!-- Topbar -->
+    <nav class="navbar navbar-expand navbar-light topbar-compact">
+        <div class="d-flex align-items-center ms-auto">
+            <!-- Theme Toggle -->
+            <div class="nav-item compact-theme ms-2">
+                <a class="nav-link theme-toggle">
+                    <i class="bi bi-moon-fill"></i>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="content">
+        <div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-4">
+            <div>
+                <h1 class="h3 mb-0 text-gray-800">DMARC Policy Generator</h1>
+                <small class="text-muted">Create custom DMARC policies for your domains</small>
+            </div>
+            <div class="mt-3 mt-md-0">
+                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#policyHelpModal">
+                    <i class="bi bi-question-circle me-1"></i> Policy Help
+                </button>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card shadow mb-4 fade-in">
+                    <div class="card-header bg-white">
+                        <h6 class="m-0 font-weight-bold text-primary">Policy Configuration</h6>
+                    </div>
+                    <div class="card-body">
+                        <form id="policyForm">
+                            <div class="form-section">
+                                <h5 class="mb-3">Basic Policy Settings</h5>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="domain" class="form-label">Domain</label>
+                                        <input type="text" class="form-control" id="domain" placeholder="example.com" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="policy" class="form-label">Policy</label>
+                                        <select class="form-select" id="policy" required>
+                                            <option value="none">none (monitoring only)</option>
+                                            <option value="quarantine" selected>quarantine</option>
+                                            <option value="reject">reject</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="pct" class="form-label">Percentage of emails to apply policy to (pct)</label>
+                                    <input type="range" class="form-range" min="1" max="100" step="1" id="pct" value="100">
+                                    <div class="d-flex justify-content-between">
+                                        <small>1%</small>
+                                        <small>100%</small>
+                                    </div>
+                                    <div class="text-center mt-1">
+                                        <span class="badge bg-primary" id="pctValue">100%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <h5 class="mb-3">Reporting Settings</h5>
+                                <div class="mb-3">
+                                    <label for="rua" class="form-label">Email address(es) for aggregate reports (rua)</label>
+                                    <input type="text" class="form-control" id="rua" placeholder="mailto:reports@example.com">
+                                    <div class="form-text">Multiple addresses can be separated by commas</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="ruf" class="form-label">Email address(es) for forensic reports (ruf)</label>
+                                    <input type="text" class="form-control" id="ruf" placeholder="mailto:forensic@example.com">
+                                    <div class="form-text">Multiple addresses can be separated by commas</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="ri" class="form-label">Aggregate report interval (ri) in seconds</label>
+                                    <input type="number" class="form-control" id="ri" value="86400">
+                                    <div class="form-text">Default is 86400 (24 hours)</div>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <h5 class="mb-3">Advanced Settings</h5>
+                                <div class="mb-3">
+                                    <label for="fo" class="form-label">Failure reporting options (fo)</label>
+                                    <select class="form-select" id="fo">
+                                        <option value="0">0 - Generate reports if all mechanisms fail (default)</option>
+                                        <option value="1">1 - Generate reports if any mechanism fails</option>
+                                        <option value="d">d - Generate report if DKIM fails</option>
+                                        <option value="s">s - Generate report if SPF fails</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="aspf" class="form-label">SPF alignment mode (aspf)</label>
+                                    <select class="form-select" id="aspf">
+                                        <option value="r" selected>r - Relaxed alignment (default)</option>
+                                        <option value="s">s - Strict alignment</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="adkim" class="form-label">DKIM alignment mode (adkim)</label>
+                                    <select class="form-select" id="adkim">
+                                        <option value="r" selected>r - Relaxed alignment (default)</option>
+                                        <option value="s">s - Strict alignment</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="bi bi-shield-plus me-1"></i> Generate DMARC Policy
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card shadow mb-4 fade-in delay-1">
+                    <div class="card-header bg-white">
+                        <h6 class="m-0 font-weight-bold text-primary">Generated Policy</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="result" style="display: none;">
+                            <div class="card policy-card mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">Your DMARC Record</h5>
+                                    <p class="card-text font-monospace" id="record-output">v=DMARC1; p=none; pct=100; rua=mailto:reports@example.com</p>
+                                </div>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-success copy-btn" id="copy-btn">
+                                    <i class="bi bi-clipboard-check me-1"></i> Copy to Clipboard
+                                </button>
+                                <button class="btn btn-outline-primary" id="savePolicyBtn">
+                                    <i class="bi bi-save me-1"></i> Save to Domain
+                                </button>
+                            </div>
+                        </div>
+                        <div id="emptyState" class="text-center py-5">
+                            <i class="bi bi-shield-lock" style="font-size: 3rem; color: var(--primary-300);"></i>
+                            <h5 class="mt-3">No Policy Generated</h5>
+                            <p class="text-muted">Configure your DMARC policy settings and click "Generate"</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card shadow fade-in delay-2">
+                    <div class="card-header bg-white">
+                        <h6 class="m-0 font-weight-bold text-primary">Quick Tips</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            Start with <strong>p=none</strong> to monitor before enforcing policies.
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                <small>Use <code>rua</code> to receive aggregate reports</small>
+                            </li>
+                            <li class="list-group-item d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                <small>Gradually increase <code>pct</code> when changing policies</small>
+                            </li>
+                            <li class="list-group-item d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                <small>Use <code>fo=1</code> for detailed failure reports</small>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Policy Help Modal -->
+    <div class="modal fade" id="policyHelpModal" tabindex="-1" aria-labelledby="policyHelpModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="policyHelpModalLabel">DMARC Policy Guide</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="accordion" id="policyHelpAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingOne">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                                    Policy (p)
+                                </button>
+                            </h2>
+                            <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#policyHelpAccordion">
+                                <div class="accordion-body">
+                                    <p>Specifies the policy to apply to emails that fail DMARC checks:</p>
+                                    <ul>
+                                        <li><strong>none</strong>: Take no action (monitoring only)</li>
+                                        <li><strong>quarantine</strong>: Treat as suspicious (e.g., send to spam)</li>
+                                        <li><strong>reject</strong>: Reject the message entirely</li>
+                                    </ul>
+                                    <p class="mb-0"><small class="text-muted">Recommended: Start with <code>none</code>, then move to <code>quarantine</code>, and finally <code>reject</code> after monitoring results.</small></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingTwo">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                    Percentage (pct)
+                                </button>
+                            </h2>
+                            <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#policyHelpAccordion">
+                                <div class="accordion-body">
+                                    <p>Specifies the percentage of messages to which the DMARC policy is to be applied.</p>
+                                    <p>Useful for gradually rolling out a new policy:</p>
+                                    <ul>
+                                        <li>Start with 100% when in <code>none</code> mode</li>
+                                        <li>When changing to <code>quarantine</code> or <code>reject</code>, start with a lower percentage (e.g., 10%)</li>
+                                        <li>Gradually increase to 100% as you verify legitimate emails aren't being affected</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingThree">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                                    Reporting (rua & ruf)
+                                </button>
+                            </h2>
+                            <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#policyHelpAccordion">
+                                <div class="accordion-body">
+                                    <p><strong>rua</strong>: Addresses to which aggregate reports should be sent (recommended)</p>
+                                    <p><strong>ruf</strong>: Addresses to which forensic (failure) reports should be sent (can generate high volume)</p>
+                                    <p>Format: <code>mailto:reports@example.com</code></p>
+                                    <p class="mb-0"><small class="text-muted">Multiple addresses can be specified, separated by commas.</small></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Got it!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Theme toggle implementation
+        document.querySelector('.theme-toggle').addEventListener('click', function() {
+            const htmlEl = document.documentElement;
+            const currentTheme = htmlEl.getAttribute('data-bs-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            htmlEl.setAttribute('data-bs-theme', newTheme);
+            this.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
+            localStorage.setItem('theme', newTheme);
+        });
+
+        // Check for saved theme preference
+        if (localStorage.getItem('theme')) {
+            document.documentElement.setAttribute('data-bs-theme', localStorage.getItem('theme'));
+            document.querySelector('.theme-toggle i').className = localStorage.getItem('theme') === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+        }
+
+        // Update percentage value display
+        document.getElementById('pct').addEventListener('input', function() {
+            document.getElementById('pctValue').textContent = this.value + '%';
+        });
+
+        // Form submission
+        document.getElementById('policyForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            generatePolicy();
+        });
+
+        // Copy to clipboard
+        document.getElementById('copy-btn').addEventListener('click', function() {
+            const record = document.getElementById('record-output').textContent;
+            navigator.clipboard.writeText(record).then(() => {
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="bi bi-check2 me-1"></i> Copied!';
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                }, 2000);
+            });
+        });
+
+        // Save policy button
+        document.getElementById('savePolicyBtn').addEventListener('click', function() {
+            alert('In a real application, this would save the policy to your domain configuration');
+        });
+
+        // Generate policy function
+        function generatePolicy() {
+            const domain = document.getElementById('domain').value;
+            const policy = document.getElementById('policy').value;
+            const pct = document.getElementById('pct').value;
+            const rua = document.getElementById('rua').value;
+            const ruf = document.getElementById('ruf').value;
+            const fo = document.getElementById('fo').value;
+            const aspf = document.getElementById('aspf').value;
+            const adkim = document.getElementById('adkim').value;
+            const ri = document.getElementById('ri').value;
+            
+            if (!domain) {
+                alert('Please enter a domain name');
+                return;
+            }
+            
+            let record = `v=DMARC1; p=${policy}; pct=${pct}`;
+            
+            if (rua) {
+                const ruaAddresses = rua.split(',').map(addr => addr.trim()).filter(addr => addr);
+                record += `; rua=${ruaAddresses.join(',')}`;
+            }
+            
+            if (ruf) {
+                const rufAddresses = ruf.split(',').map(addr => addr.trim()).filter(addr => addr);
+                record += `; ruf=${rufAddresses.join(',')}`;
+            }
+            
+            if (fo !== '0') {
+                record += `; fo=${fo}`;
+            }
+            
+            if (aspf !== 'r') {
+                record += `; aspf=${aspf}`;
+            }
+            
+            if (adkim !== 'r') {
+                record += `; adkim=${adkim}`;
+            }
+            
+            if (ri && ri !== '86400') {
+                record += `; ri=${ri}`;
+            }
+            
+            // Update the UI
+            document.getElementById('record-output').textContent = record;
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('emptyState').style.display = 'none';
+            
+            // Scroll to result
+            document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+</html>
