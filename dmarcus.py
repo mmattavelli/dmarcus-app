@@ -16,7 +16,7 @@ from flask import render_template
 
 # Setup GeoIP (commentato se non disponibile)
 # geoip_reader = geoip2.database.Reader('GeoLite2-City.mmdb')
-__version__ = "0.4"
+__version__ = "0.5"
 
 app = Flask(__name__)
 print("Static folder path:", app.static_folder)
@@ -26,12 +26,15 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 DB_FILE = 'dmarc_reports.json'
+DOMAINS_FILE = 'domains.json'
 
 # Create upload folder if it doesn't exist
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
+# Initialize data structures
 reports_data = []
+domains_data = []
 
 
 
@@ -40,6 +43,206 @@ def init_db():
     if not os.path.exists(DB_FILE):
         with open(DB_FILE, 'w') as f:
             json.dump({"reports": [], "last_updated": None}, f)
+
+
+
+def analyze_email_headers(headers):
+    """Analyze email headers for DMARC, SPF, DKIM"""
+    try:
+        headers_dict = parse_email_headers(headers)
+        if not headers_dict:
+            return {'error': 'Invalid email headers format'}
+        
+        # Extract basic info
+        from_header = headers_dict.get('From', 'N/A')
+        subject = headers_dict.get('Subject', 'N/A')
+        date = headers_dict.get('Date', 'N/A')
+        
+        # Initialize results
+        results = {
+            'basic_info': {
+                'from': from_header,
+                'subject': subject,
+                'date': date
+            },
+            'dmarc': {
+                'status': 'none',
+                'domain': 'N/A',
+                'policy': 'N/A',
+                'alignment': 'N/A',
+                'result': 'N/A'
+            },
+            'spf': {
+                'status': 'none',
+                'domain': 'N/A',
+                'ip': 'N/A',
+                'scope': 'N/A',
+                'result': 'N/A'
+            },
+            'dkim': {
+                'status': 'none',
+                'domain': 'N/A',
+                'selector': 'N/A',
+                'algorithm': 'N/A',
+                'result': 'N/A'
+            },
+            'raw_headers': headers
+        }
+        
+        # Parse Authentication-Results header if present
+        auth_results = headers_dict.get('Authentication-Results', '')
+        if auth_results:
+            # Simple parsing - in a real app you'd want more robust parsing
+            if 'dmarc=pass' in auth_results.lower():
+                results['dmarc']['status'] = 'pass'
+                results['dmarc']['result'] = 'DMARC validation passed'
+            elif 'dmarc=fail' in auth_results.lower():
+                results['dmarc']['status'] = 'fail'
+                results['dmarc']['result'] = 'DMARC validation failed'
+            
+            if 'spf=pass' in auth_results.lower():
+                results['spf']['status'] = 'pass'
+                results['spf']['result'] = 'SPF validation passed'
+            elif 'spf=fail' in auth_results.lower():
+                results['spf']['status'] = 'fail'
+                results['spf']['result'] = 'SPF validation failed'
+            
+            if 'dkim=pass' in auth_results.lower():
+                results['dkim']['status'] = 'pass'
+                results['dkim']['result'] = 'DKIM validation passed'
+            elif 'dkim=fail' in auth_results.lower():
+                results['dkim']['status'] = 'fail'
+                results['dkim']['result'] = 'DKIM validation failed'
+        
+        # Parse DKIM-Signature header if present
+        dkim_sig = headers_dict.get('DKIM-Signature', '')
+        if dkim_sig:
+            # Extract DKIM info
+            dkim_parts = [p.strip() for p in dkim_sig.split(';') if p.strip()]
+            for part in dkim_parts:
+                if '=' in part:
+                    key, value = part.split('=', 1)
+                    key = key.strip().lower()
+                    if key == 'd':
+                        results['dkim']['domain'] = value.strip()
+                    elif key == 's':
+                        results['dkim']['selector'] = value.strip()
+                    elif key == 'a':
+                        results['dkim']['algorithm'] = value.strip()
+        
+        # Parse Received-SPF header if present
+        received_spf = headers_dict.get('Received-SPF', '')
+        if received_spf:
+            # Extract SPF info
+            spf_parts = [p.strip() for p in received_spf.split(' ') if p.strip()]
+            for part in spf_parts:
+                if part.startswith('client-ip='):
+                    results['spf']['ip'] = part.split('=')[1]
+                elif part.startswith('envelope-from='):
+                    results['spf']['scope'] = 'mfrom'
+                    results['spf']['domain'] = part.split('@')[-1] if '@' in part else 'N/A'
+        
+        # Parse DMARC policy if present
+        dmarc_policy = headers_dict.get('DMARC-Results', '')
+        if dmarc_policy:
+            # Extract DMARC policy info
+            policy_parts = [p.strip() for p in dmarc_policy.split(';') if p.strip()]
+            for part in policy_parts:
+                if '=' in part:
+                    key, value = part.split('=', 1)
+                    key = key.strip().lower()
+                    if key == 'p':
+                        results['dmarc']['policy'] = value.strip()
+                    elif key == 'adkim':
+                        results['dmarc']['alignment'] = 'Strict' if value.strip() == 's' else 'Relaxed'
+        
+        return results
+    except Exception as e:
+        print(f"Error analyzing headers: {str(e)}")
+        return {'error': str(e)}
+
+def parse_eml_file(file):
+    """Parse an EML file for analysis"""
+    try:
+        # Parse the EML file
+        msg = BytesParser(policy=policy.default).parse(file)
+        
+        # Get headers as text
+        headers = '\n'.join(f"{k}: {v}" for k, v in msg.items())
+        
+        # Analyze the headers
+        return analyze_email_headers(headers)
+    except Exception as e:
+        return {'error': str(e)}
+
+def parse_dmarc_report(file):
+    """Parse a DMARC report file (XML or GZ)"""
+    try:
+        # Read file content
+        if file.filename.endswith('.gz'):
+            import gzip
+            import io
+            file_content = file.read()
+            with gzip.open(io.BytesIO(file_content), 'rb') as f_in:
+                content = f_in.read().decode('utf-8')
+        else:
+            content = file.read().decode('utf-8')
+        
+        # Reset file pointer
+        file.seek(0)
+        
+        # Parse XML
+        root = ET.fromstring(content)
+        
+        report = {
+            'org': safe_find_text(root, './/org_name'),
+            'email': safe_find_text(root, './/email'),
+            'report_id': safe_find_text(root, './/report_id'),
+            'date_range': {
+                'start': timestamp_to_date(safe_find_text(root, './/date_range/begin')),
+                'end': timestamp_to_date(safe_find_text(root, './/date_range/end')),
+                'start_ts': int(safe_find_text(root, './/date_range/begin', '0')),
+                'end_ts': int(safe_find_text(root, './/date_range/end', '0'))
+            },
+            'policy': {
+                'domain': safe_find_text(root, './/policy_published/domain'),
+                'adkim': safe_find_text(root, './/policy_published/adkim', 'r'),
+                'aspf': safe_find_text(root, './/policy_published/aspf', 'r'),
+                'p': safe_find_text(root, './/policy_published/p'),
+                'sp': safe_find_text(root, './/policy_published/sp', 'N/A'),
+                'pct': safe_find_text(root, './/policy_published/pct', '100'),
+                'fo': safe_find_text(root, './/policy_published/fo', '0')
+            },
+            'records': []
+        }
+
+        # Extract records
+        for record in root.findall('.//record'):
+            policy_evaluated = record.find('.//row/policy_evaluated')
+            auth_results = record.find('.//auth_results')
+            
+            source_ip = safe_find_text(record, './/row/source_ip')
+            count = int(safe_find_text(record, './/row/count', "0"))
+            
+            row_data = {
+                'source_ip': source_ip,
+                'count': count,
+                'disposition': safe_find_text(policy_evaluated, './/disposition') if policy_evaluated is not None else 'N/A',
+                'dkim': safe_find_text(auth_results, './/dkim/result', '').lower() if auth_results is not None else 'N/A',
+                'spf': safe_find_text(auth_results, './/spf/result', '').lower() if auth_results is not None else 'N/A',
+                'header_from': safe_find_text(record, './/identifiers/header_from'),
+                'is_internal': is_ip_private(source_ip),
+                'location': get_ip_location(source_ip),
+                'dkim_domain': safe_find_text(auth_results, './/dkim/domain', '') if auth_results is not None else '',
+                'spf_domain': safe_find_text(auth_results, './/spf/domain', '') if auth_results is not None else ''
+            }
+            report['records'].append(row_data)
+        
+        return report
+        
+    except Exception as e:
+        return {'error': str(e)}
+
 
 def save_reports(reports):
     with open(DB_FILE, 'w') as f:
@@ -209,7 +412,7 @@ def parse_dmarc_report(file):
     
 
 def calculate_pass_rate(report):
-    """Calcola la percentuale di autenticazioni riuscite"""
+    """Calculate authentication pass rate for a report"""
     total = len(report['records'])
     if total == 0:
         return 0
@@ -222,7 +425,7 @@ def calculate_pass_rate(report):
     return round((passed / total) * 100, 1)
 
 def calculate_auth_data(report):
-    """Prepara i dati per il grafico di autenticazione"""
+    """Calculate authentication data for charts"""
     data = {
         'both_pass': 0,
         'spf_pass': 0,
@@ -687,6 +890,147 @@ def export_csv(org_name, report_id=None):
     output.headers["Content-Disposition"] = f"attachment; filename={filename}"
     output.headers["Content-type"] = "text/csv"
     return output
+
+@app.route('/domains', methods=['GET', 'POST'])
+def domains():
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == 'add':
+            domain_name = request.form.get('domain_name')
+            dmarc_policy = request.form.get('dmarc_policy')
+            enable_reporting = request.form.get('enable_reporting') == 'on'
+            report_emails = request.form.get('report_emails', '')
+            
+            if not domain_name:
+                flash('Domain name is required', 'error')
+                return redirect(url_for('domains'))
+            
+            if domain_exists(domain_name):
+                flash(f'Domain {domain_name} already exists', 'error')
+                return redirect(url_for('domains'))
+            
+            domain = {
+                'name': domain_name,
+                'dmarc_policy': dmarc_policy,
+                'enable_reporting': enable_reporting,
+                'report_emails': [e.strip() for e in report_emails.split(',') if e.strip()],
+                'created_at': datetime.now().isoformat(),
+                'status': 'pending',
+                'last_report': None,
+                'auth_score': 0
+            }
+            
+            add_domain(domain)
+            flash(f'Domain {domain_name} added successfully', 'success')
+            return redirect(url_for('domains'))
+        
+        elif action == 'update':
+            domain_name = request.form.get('domain_name')
+            dmarc_policy = request.form.get('dmarc_policy')
+            enable_reporting = request.form.get('enable_reporting') == 'on'
+            report_emails = request.form.get('report_emails', '')
+            
+            domains = load_domains()
+            updated = False
+            
+            for domain in domains:
+                if domain['name'] == domain_name:
+                    domain['dmarc_policy'] = dmarc_policy
+                    domain['enable_reporting'] = enable_reporting
+                    domain['report_emails'] = [e.strip() for e in report_emails.split(',') if e.strip()]
+                    updated = True
+                    break
+            
+            if updated:
+                save_domains(domains)
+                domains_data[:] = domains
+                flash(f'Domain {domain_name} updated successfully', 'success')
+            else:
+                flash(f'Domain {domain_name} not found', 'error')
+            
+            return redirect(url_for('domains'))
+        
+        elif action == 'delete':
+            domain_name = request.form.get('domain_name')
+            
+            domains = load_domains()
+            domains = [d for d in domains if d['name'] != domain_name]
+            
+            save_domains(domains)
+            domains_data[:] = domains
+            flash(f'Domain {domain_name} deleted successfully', 'success')
+            return redirect(url_for('domains'))
+    
+    return render_template('domains.html', domains=domains_data, version=__version__)
+
+@app.route('/policy-generator', methods=['GET', 'POST'])
+def policy_generator():
+    if request.method == 'POST':
+        domain = request.form.get('domain')
+        policy = request.form.get('policy')
+        pct = request.form.get('pct')
+        rua = request.form.get('rua')
+        ruf = request.form.get('ruf')
+        fo = request.form.get('fo')
+        aspf = request.form.get('aspf')
+        adkim = request.form.get('adkim')
+        ri = request.form.get('ri')
+        
+        # Validate inputs
+        if not domain:
+            flash('Domain is required', 'error')
+            return redirect(url_for('policy_generator'))
+        
+        if not re.match(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', domain):
+            flash('Invalid domain format', 'error')
+            return redirect(url_for('policy_generator'))
+        
+        # Generate DMARC record
+        record = f"v=DMARC1; p={policy}; pct={pct}"
+        
+        if rua:
+            rua_addresses = [a.strip() for a in rua.split(',') if a.strip()]
+            record += f"; rua={','.join(rua_addresses)}"
+        
+        if ruf:
+            ruf_addresses = [a.strip() for a in ruf.split(',') if a.strip()]
+            record += f"; ruf={','.join(ruf_addresses)}"
+        
+        if fo != '0':
+            record += f"; fo={fo}"
+        
+        if aspf != 'r':
+            record += f"; aspf={aspf}"
+        
+        if adkim != 'r':
+            record += f"; adkim={adkim}"
+        
+        if ri and ri != '86400':
+            record += f"; ri={ri}"
+        
+        return render_template('policy_generator.html', 
+                            dmarc_record=record,
+                            domain=domain,
+                            version=__version__)
+    
+    return render_template('policy_generator.html', version=__version__)
+
+@app.route('/analyzer', methods=['GET', 'POST'])
+def analyzer():
+    if request.method == 'POST':
+        if 'emlFile' in request.files:
+            file = request.files['emlFile']
+            if file and file.filename.endswith('.eml'):
+                analysis = parse_eml_file(file)
+                return render_template('analyzer.html', analysis=analysis, version=__version__)
+        
+        elif 'emailHeaders' in request.form:
+            headers = request.form['emailHeaders']
+            analysis = analyze_email_headers(headers)
+            return render_template('analyzer.html', analysis=analysis, version=__version__)
+    
+    return render_template('analyzer.html', version=__version__)
 
 @app.route('/export/json')
 def export_json():
