@@ -20,7 +20,7 @@ logging.basicConfig(filename='dmarcus.log', level=logging.INFO)
 
 # Setup GeoIP (commentato se non disponibile)
 # geoip_reader = geoip2.database.Reader('GeoLite2-City.mmdb')
-__version__ = "0.5"
+__version__ = "0.6"
 
 app = Flask(__name__)
 print("Static folder path:", app.static_folder)
