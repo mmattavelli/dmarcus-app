@@ -13,6 +13,10 @@ import geoip2.database
 from werkzeug.utils import secure_filename
 from database import load_reports, save_reports, add_report
 from flask import render_template
+import re
+
+import logging
+logging.basicConfig(filename='dmarcus.log', level=logging.INFO)
 
 # Setup GeoIP (commentato se non disponibile)
 # geoip_reader = geoip2.database.Reader('GeoLite2-City.mmdb')
@@ -40,9 +44,32 @@ domains_data = []
 
 
 def init_db():
+    """Initialize database files if they don't exist"""
     if not os.path.exists(DB_FILE):
         with open(DB_FILE, 'w') as f:
             json.dump({"reports": [], "last_updated": None}, f)
+    else:
+        # Verifica che il file sia valido
+        try:
+            with open(DB_FILE, 'r') as f:
+                json.load(f)
+        except json.JSONDecodeError:
+            # Se il file è corrotto, ricrealo
+            with open(DB_FILE, 'w') as f:
+                json.dump({"reports": [], "last_updated": None}, f)
+    
+    if not os.path.exists(DOMAINS_FILE):
+        with open(DOMAINS_FILE, 'w') as f:
+            json.dump({"domains": [], "last_updated": None}, f)
+    else:
+        # Verifica che il file sia valido
+        try:
+            with open(DOMAINS_FILE, 'r') as f:
+                json.load(f)
+        except json.JSONDecodeError:
+            # Se il file è corrotto, ricrealo
+            with open(DOMAINS_FILE, 'w') as f:
+                json.dump({"domains": [], "last_updated": None}, f)
 
 
 
@@ -251,6 +278,45 @@ def save_reports(reports):
             "last_updated": datetime.now().isoformat()
         }, f, indent=2)
 
+
+def load_domains():
+    """Load domains from JSON file"""
+    init_db()
+    try:
+        with open(DOMAINS_FILE, 'r') as f:
+            data = json.load(f)
+            return data.get("domains", [])
+    except Exception as e:
+        print(f"Error loading domains: {str(e)}")
+        return []
+
+def sync_domains():
+    """Sync in-memory domains with file"""
+    global domains_data
+    domains_data = load_domains()
+
+def save_domains(domains):
+    """Save domains to JSON file"""
+    try:
+        with open(DOMAINS_FILE, 'w') as f:
+            json.dump({
+                "domains": domains,
+                "last_updated": datetime.now().isoformat()
+            }, f, indent=2)
+        return True
+    except Exception as e:
+        print(f"Error saving domains: {str(e)}")
+        return False
+
+def add_domain(domain):
+    """Add a new domain to the database"""
+    domains = load_domains()
+    domains.append(domain)
+    if save_domains(domains):
+        sync_domains()
+        return True
+    return False
+
 def load_reports():
     init_db()
     try:
@@ -270,8 +336,27 @@ def add_report(report):
     save_reports(reports)
     reports_data.append(report)
 
+def backup_domains():
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_file = f"domains_backup_{timestamp}.json"
+    with open(DOMAINS_FILE, 'r') as src, open(backup_file, 'w') as dst:
+        dst.write(src.read())
+
 # Carica i report all'avvio
 reports_data = load_reports()
+domains_data = load_domains()
+
+def format_datetime(value, format='%Y-%m-%d %H:%M'):
+    if value is None:
+        return "Never"
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except ValueError:
+            return value
+    return value.strftime(format)
+
+app.jinja_env.filters['format_datetime'] = format_datetime
 
 # Helper functions
 def safe_find_text(element, path, default="N/A"):
@@ -409,7 +494,14 @@ def parse_dmarc_report(file):
         
     except Exception as e:
         return {'error': str(e)}
-    
+
+def backup_domains():
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_file = f"domains_backup_{timestamp}.json"
+    with open(DOMAINS_FILE, 'r') as src, open(backup_file, 'w') as dst:
+        dst.write(src.read())    
+
+
 
 def calculate_pass_rate(report):
     """Calculate authentication pass rate for a report"""
@@ -493,6 +585,10 @@ def get_ip_addresses(report):
 def report_id_exists(report_id):
     """Check if a report with this ID already exists"""
     return any(report['report_id'] == report_id for report in reports_data)
+
+def domain_exists(domain_name):
+    """Check if a domain already exists (case-insensitive)"""
+    return any(d['name'].lower() == domain_name.lower() for d in domains_data)
 
 def generate_stats(reports_data, time_filter='30days'):
     if not reports_data:
@@ -897,19 +993,25 @@ def domains():
         action = request.form.get('action')
         
         if action == 'add':
-            domain_name = request.form.get('domain_name')
-            dmarc_policy = request.form.get('dmarc_policy')
+            domain_name = request.form.get('domain_name', '').strip()
+            dmarc_policy = request.form.get('dmarc_policy', 'none')
             enable_reporting = request.form.get('enable_reporting') == 'on'
             report_emails = request.form.get('report_emails', '')
             
+            # Validazione
             if not domain_name:
                 flash('Domain name is required', 'error')
+                return redirect(url_for('domains'))
+            
+            if not re.match(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', domain_name):
+                flash('Invalid domain format', 'error')
                 return redirect(url_for('domains'))
             
             if domain_exists(domain_name):
                 flash(f'Domain {domain_name} already exists', 'error')
                 return redirect(url_for('domains'))
             
+            # Creazione nuovo dominio
             domain = {
                 'name': domain_name,
                 'dmarc_policy': dmarc_policy,
@@ -926,8 +1028,8 @@ def domains():
             return redirect(url_for('domains'))
         
         elif action == 'update':
-            domain_name = request.form.get('domain_name')
-            dmarc_policy = request.form.get('dmarc_policy')
+            domain_name = request.form.get('domain_name', '').strip()
+            dmarc_policy = request.form.get('dmarc_policy', 'none')
             enable_reporting = request.form.get('enable_reporting') == 'on'
             report_emails = request.form.get('report_emails', '')
             
@@ -936,15 +1038,18 @@ def domains():
             
             for domain in domains:
                 if domain['name'] == domain_name:
-                    domain['dmarc_policy'] = dmarc_policy
-                    domain['enable_reporting'] = enable_reporting
-                    domain['report_emails'] = [e.strip() for e in report_emails.split(',') if e.strip()]
+                    domain.update({
+                        'dmarc_policy': dmarc_policy,
+                        'enable_reporting': enable_reporting,
+                        'report_emails': [e.strip() for e in report_emails.split(',') if e.strip()],
+                        'status': 'active'  # Imposta come attivo dopo l'aggiornamento
+                    })
                     updated = True
                     break
             
             if updated:
                 save_domains(domains)
-                domains_data[:] = domains
+                sync_domains()
                 flash(f'Domain {domain_name} updated successfully', 'success')
             else:
                 flash(f'Domain {domain_name} not found', 'error')
@@ -952,16 +1057,28 @@ def domains():
             return redirect(url_for('domains'))
         
         elif action == 'delete':
-            domain_name = request.form.get('domain_name')
+            domain_name = request.form.get('domain_name', '').strip()
+            confirm_delete = request.form.get('confirm_delete') == 'on'
+            
+            if not confirm_delete:
+                flash('Please confirm deletion', 'error')
+                return redirect(url_for('domains'))
             
             domains = load_domains()
+            initial_count = len(domains)
             domains = [d for d in domains if d['name'] != domain_name]
             
-            save_domains(domains)
-            domains_data[:] = domains
-            flash(f'Domain {domain_name} deleted successfully', 'success')
+            if len(domains) < initial_count:
+                save_domains(domains)
+                sync_domains()
+                flash(f'Domain {domain_name} deleted successfully', 'success')
+            else:
+                flash(f'Domain {domain_name} not found', 'error')
+            
             return redirect(url_for('domains'))
     
+    # Carica sempre i dati aggiornati per il template
+    domains_data = load_domains()
     return render_template('domains.html', domains=domains_data, version=__version__)
 
 @app.route('/policy-generator', methods=['GET', 'POST'])
@@ -1048,9 +1165,10 @@ def export_json():
 
 @app.route('/reload')
 def reload_reports():
-    global reports_data
-    reports_data = load_reports()  # Usa la funzione esistente load_reports()
-    flash('Reports reloaded successfully!', 'success')
+    global reports_data, domains_data
+    reports_data = load_reports()
+    domains_data = load_domains()
+    flash('Data reloaded successfully!', 'success')
     return redirect(url_for('dashboard'))
 
 @app.route('/all_reports')
@@ -1106,7 +1224,14 @@ def all_reports():
         flash(f"An unexpected error occurred: {str(e)}", "error")
         return redirect(url_for('dashboard'))
 
+@app.route('/api/domains', methods=['GET'])
+def api_domains():
+    sync_domains()
+    return jsonify(domains_data)
+    
+
 if __name__ == '__main__':
     reports_data = load_reports()
+    domains_data = load_domains()
     print(f"\n🚀 Starting DMARCus Analyzer with {len(reports_data)} reports in database")
     app.run('0.0.0.0', port=3627, debug=True)
