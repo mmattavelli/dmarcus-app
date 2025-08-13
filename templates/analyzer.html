@@ -1,251 +1,138 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="auto">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Message Analyzer | DMARCus</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        .message-header {
-            background-color: var(--primary-50);
-            border-radius: var(--border-radius);
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-        .analysis-result-card {
-            border-left: 4px solid var(--primary-500);
-        }
-        .tab-content {
-            padding: 1rem;
-            background-color: white;
-            border-radius: 0 0 var(--border-radius) var(--border-radius);
-        }
-        .result-badge {
-            font-size: 0.8rem;
-            padding: 0.35rem 0.5rem;
-        }
-        .auth-details {
-            font-size: 0.9rem;
-        }
-    </style>
-</head>
-<body class="bg-light">
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="sidebar-brand d-flex flex-column align-items-center justify-content-center py-4 mb-2">
-            <div class="">
-                <img src="{{ url_for('static', filename='logo_dmarcus.png') }}" alt="DMARCus Logo" style="width: 100px; height: 100px;">
-            </div>
-            <div class="sidebar-brand-text mx-2 text-white">DMARCus</div>
-        </div>
-        <hr class="sidebar-divider my-0">
-        
-        <!-- Nav Items -->
-        <div class="nav-item">
-            <a class="nav-link" href="/dashboard">
-                <i class="bi bi-speedometer2"></i>
-                <span>Dashboard</span>
-            </a>
-        </div>
-        
-        <div class="nav-item">
-            <a class="nav-link" href="/all_reports">
-                <i class="bi bi-file-earmark-text"></i>
-                <span>Reports</span>
-            </a>
-        </div>
-        
-        <div class="nav-item">
-            <a class="nav-link" href="/domains">
-                <i class="bi bi-globe"></i>
-                <span>Domains</span>
-            </a>
-        </div>
-        
-        <div class="nav-item">
-            <a class="nav-link" href="/settings">
-                <i class="bi bi-gear"></i>
-                <span>Settings</span>
-            </a>
-        </div>
-        
-        <hr class="sidebar-divider">
-        
-        <div class="sidebar-heading">Tools</div>
-        
-        <div class="nav-item">
-            <a class="nav-link active" href="/analyzer">
-                <i class="bi bi-search"></i>
-                <span>Message Analyzer</span>
-            </a>
-        </div>
-        
-        <div class="nav-item">
-            <a class="nav-link" href="/policy-generator">
-                <i class="bi bi-shield-plus"></i>
-                <span>Policy Generator</span>
-            </a>
-        </div>
-        
-        <hr class="sidebar-divider d-none d-md-block">
-        
-        <div class="text-center d-none d-md-inline">
-            <button class="rounded-circle border-0" id="sidebarToggle">
-                <i class="bi bi-arrow-left"></i>
-            </button>
-        </div>
-        
-        <div class="version-info">
-            DMARCus v{{ version }}
+{% extends "base.html" %}
+
+{% block title %}Message Analyzer | DMARCus{% endblock %}
+
+{% block content %}
+<div class="container-fluid main-content">
+    <div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">Message Analyzer</h1>
+            <small class="text-muted">Analyze individual email messages for DMARC, SPF and DKIM validation</small>
         </div>
     </div>
 
-    <!-- Topbar -->
-    <nav class="navbar navbar-expand navbar-light topbar-compact">
-        <div class="d-flex align-items-center ms-auto">
-            <!-- Theme Toggle -->
-            <div class="nav-item compact-theme ms-2">
-                <a class="nav-link theme-toggle">
-                    <i class="bi bi-moon-fill"></i>
-                </a>
-            </div>
+    <div class="card shadow mb-4 fade-in">
+        <div class="card-header bg-white">
+            <ul class="nav nav-tabs card-header-tabs" id="analyzerTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="paste-tab" data-bs-toggle="tab" data-bs-target="#paste" type="button" role="tab">Paste Headers</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab">Upload EML</button>
+                </li>
+            </ul>
         </div>
-    </nav>
-
-    <!-- Main Content -->
-    <div class="content">
-        <div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-4">
-            <div>
-                <h1 class="h3 mb-0 text-gray-800">Message Analyzer</h1>
-                <small class="text-muted">Analyze individual email messages for DMARC, SPF and DKIM validation</small>
-            </div>
-        </div>
-
-        <div class="card shadow mb-4 fade-in">
-            <div class="card-header bg-white">
-                <ul class="nav nav-tabs card-header-tabs" id="analyzerTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="paste-tab" data-bs-toggle="tab" data-bs-target="#paste" type="button" role="tab">Paste Headers</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab">Upload EML</button>
-                    </li>
-                </ul>
-            </div>
-            <div class="card-body">
-                <div class="tab-content" id="analyzerTabsContent">
-                    <div class="tab-pane fade show active" id="paste" role="tabpanel">
-                        <form id="headersForm">
-                            <div class="mb-3">
-                                <label for="emailHeaders" class="form-label">Email Headers</label>
-                                <textarea class="form-control font-monospace" id="emailHeaders" rows="10" placeholder="Paste the full email headers here..." required></textarea>
-                                <div class="form-text">Example: Received, DKIM-Signature, and Authentication-Results headers</div>
-                            </div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-search me-1"></i> Analyze Headers
-                            </button>
-                        </form>
-                    </div>
-                    <div class="tab-pane fade" id="upload" role="tabpanel">
-                        <form id="uploadForm">
-                            <div class="mb-3">
-                                <label for="emlFile" class="form-label">EML File</label>
-                                <input type="file" class="form-control" id="emlFile" accept=".eml" required>
-                                <div class="form-text">Upload a .eml file to analyze (max 5MB)</div>
-                            </div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-upload me-1"></i> Upload & Analyze
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Results Section (hidden by default) -->
-        <div class="card shadow mb-4 fade-in" id="resultsSection" style="display: none;">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h6 class="m-0 font-weight-bold text-primary">Analysis Results</h6>
-                <button class="btn btn-sm btn-outline-secondary" id="newAnalysisBtn">
-                    <i class="bi bi-arrow-repeat me-1"></i>New Analysis
-                </button>
-            </div>
-            <div class="card-body">
-                <div class="message-header">
-                    <h5>Message: <span id="messageSubject">Test email from example.com</span></h5>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <strong>From:</strong> <span id="messageFrom">sender@example.com</span>
+        <div class="card-body">
+            <div class="tab-content" id="analyzerTabsContent">
+                <div class="tab-pane fade show active" id="paste" role="tabpanel">
+                    <form id="headersForm">
+                        <div class="mb-3">
+                            <label for="emailHeaders" class="form-label">Email Headers</label>
+                            <textarea class="form-control font-monospace" id="emailHeaders" rows="10" placeholder="Paste the full email headers here..." required></textarea>
+                            <div class="form-text">Example: Received, DKIM-Signature, and Authentication-Results headers</div>
                         </div>
-                        <div class="col-md-6">
-                            <strong>Date:</strong> <span id="messageDate">2023-12-15 14:30:22 UTC</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-4 mb-4">
-                        <div class="card h-100 analysis-result-card">
-                            <div class="card-body">
-                                <h5 class="card-title d-flex justify-content-between align-items-center">
-                                    <span>DMARC</span>
-                                    <span class="badge bg-success result-badge">PASS</span>
-                                </h5>
-                                <div class="auth-details">
-                                    <div class="mb-2"><strong>Domain:</strong> <span id="dmarcDomain">example.com</span></div>
-                                    <div class="mb-2"><strong>Policy:</strong> <span id="dmarcPolicy">quarantine</span></div>
-                                    <div class="mb-2"><strong>Alignment:</strong> <span id="dmarcAlignment">Relaxed</span></div>
-                                    <div><strong>Result:</strong> <span id="dmarcResult">Message would be quarantined</span></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-4">
-                        <div class="card h-100 analysis-result-card">
-                            <div class="card-body">
-                                <h5 class="card-title d-flex justify-content-between align-items-center">
-                                    <span>SPF</span>
-                                    <span class="badge bg-success result-badge">PASS</span>
-                                </h5>
-                                <div class="auth-details">
-                                    <div class="mb-2"><strong>Domain:</strong> <span id="spfDomain">example.com</span></div>
-                                    <div class="mb-2"><strong>IP:</strong> <span id="spfIp">192.0.2.1</span></div>
-                                    <div class="mb-2"><strong>Scope:</strong> <span id="spfScope">mfrom</span></div>
-                                    <div><strong>Result:</strong> <span id="spfResult">Sender authorized</span></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-4">
-                        <div class="card h-100 analysis-result-card">
-                            <div class="card-body">
-                                <h5 class="card-title d-flex justify-content-between align-items-center">
-                                    <span>DKIM</span>
-                                    <span class="badge bg-success result-badge">PASS</span>
-                                </h5>
-                                <div class="auth-details">
-                                    <div class="mb-2"><strong>Domain:</strong> <span id="dkimDomain">example.com</span></div>
-                                    <div class="mb-2"><strong>Selector:</strong> <span id="dkimSelector">default</span></div>
-                                    <div class="mb-2"><strong>Algorithm:</strong> <span id="dkimAlgorithm">rsa-sha256</span></div>
-                                    <div><strong>Result:</strong> <span id="dkimResult">Signature valid</span></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card mb-4">
-                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                        <h6 class="m-0 font-weight-bold text-primary">Raw Headers</h6>
-                        <button class="btn btn-sm btn-outline-primary" id="copyHeadersBtn">
-                            <i class="bi bi-clipboard me-1"></i>Copy
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search me-1"></i> Analyze Headers
                         </button>
+                    </form>
+                </div>
+                <div class="tab-pane fade" id="upload" role="tabpanel">
+                    <form id="uploadForm">
+                        <div class="mb-3">
+                            <label for="emlFile" class="form-label">EML File</label>
+                            <input type="file" class="form-control" id="emlFile" accept=".eml" required>
+                            <div class="form-text">Upload a .eml file to analyze (max 5MB)</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-upload me-1"></i> Upload & Analyze
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section (hidden by default) -->
+    <div class="card shadow mb-4 fade-in" id="resultsSection" style="display: none;">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Analysis Results</h6>
+            <button class="btn btn-sm btn-outline-secondary" id="newAnalysisBtn">
+                <i class="bi bi-arrow-repeat me-1"></i>New Analysis
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="message-header">
+                <h5>Message: <span id="messageSubject">Test email from example.com</span></h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>From:</strong> <span id="messageFrom">sender@example.com</span>
                     </div>
-                    <div class="card-body p-0">
-                        <pre class="bg-light p-3 m-0 rounded-bottom" id="rawHeaders">Received: from mail.example.com (mail.example.com [192.0.2.1])
+                    <div class="col-md-6">
+                        <strong>Date:</strong> <span id="messageDate">2023-12-15 14:30:22 UTC</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 analysis-result-card">
+                        <div class="card-body">
+                            <h5 class="card-title d-flex justify-content-between align-items-center">
+                                <span>DMARC</span>
+                                <span class="badge bg-success result-badge">PASS</span>
+                            </h5>
+                            <div class="auth-details">
+                                <div class="mb-2"><strong>Domain:</strong> <span id="dmarcDomain">example.com</span></div>
+                                <div class="mb-2"><strong>Policy:</strong> <span id="dmarcPolicy">quarantine</span></div>
+                                <div class="mb-2"><strong>Alignment:</strong> <span id="dmarcAlignment">Relaxed</span></div>
+                                <div><strong>Result:</strong> <span id="dmarcResult">Message would be quarantined</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 analysis-result-card">
+                        <div class="card-body">
+                            <h5 class="card-title d-flex justify-content-between align-items-center">
+                                <span>SPF</span>
+                                <span class="badge bg-success result-badge">PASS</span>
+                            </h5>
+                            <div class="auth-details">
+                                <div class="mb-2"><strong>Domain:</strong> <span id="spfDomain">example.com</span></div>
+                                <div class="mb-2"><strong>IP:</strong> <span id="spfIp">192.0.2.1</span></div>
+                                <div class="mb-2"><strong>Scope:</strong> <span id="spfScope">mfrom</span></div>
+                                <div><strong>Result:</strong> <span id="spfResult">Sender authorized</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 analysis-result-card">
+                        <div class="card-body">
+                            <h5 class="card-title d-flex justify-content-between align-items-center">
+                                <span>DKIM</span>
+                                <span class="badge bg-success result-badge">PASS</span>
+                            </h5>
+                            <div class="auth-details">
+                                <div class="mb-2"><strong>Domain:</strong> <span id="dkimDomain">example.com</span></div>
+                                <div class="mb-2"><strong>Selector:</strong> <span id="dkimSelector">default</span></div>
+                                <div class="mb-2"><strong>Algorithm:</strong> <span id="dkimAlgorithm">rsa-sha256</span></div>
+                                <div><strong>Result:</strong> <span id="dkimResult">Signature valid</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Raw Headers</h6>
+                    <button class="btn btn-sm btn-outline-primary" id="copyHeadersBtn">
+                        <i class="bi bi-clipboard me-1"></i>Copy
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <pre class="bg-light p-3 m-0 rounded-bottom" id="rawHeaders">Received: from mail.example.com (mail.example.com [192.0.2.1])
     by mx.google.com with ESMTPS id abc123def456
     for &lt;recipient@example.org&gt;
     (version=TLS1_2 cipher=ECDHE-ECDSA-AES128-GCM-SHA256 bits=128/128);
@@ -264,101 +151,84 @@ Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 
 This is a test email message.</pre>
-                    </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
+{% endblock %}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Theme toggle implementation
-        document.querySelector('.theme-toggle').addEventListener('click', function() {
-            const htmlEl = document.documentElement;
-            const currentTheme = htmlEl.getAttribute('data-bs-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            htmlEl.setAttribute('data-bs-theme', newTheme);
-            this.innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
-            localStorage.setItem('theme', newTheme);
-        });
+{% block extra_scripts %}
+<script>
+    // Form submission handlers
+    document.getElementById('headersForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        analyzeMessage();
+    });
 
-        // Check for saved theme preference
-        if (localStorage.getItem('theme')) {
-            document.documentElement.setAttribute('data-bs-theme', localStorage.getItem('theme'));
-            document.querySelector('.theme-toggle i').className = localStorage.getItem('theme') === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const file = document.getElementById('emlFile').files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                console.log('File content:', e.target.result);
+                analyzeMessage();
+            };
+            reader.readAsText(file);
         }
+    });
 
-        // Form submission handlers
-        document.getElementById('headersForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            analyzeMessage();
-        });
+    // New analysis button
+    document.getElementById('newAnalysisBtn').addEventListener('click', function() {
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('emailHeaders').value = '';
+        document.getElementById('emlFile').value = '';
+        document.getElementById('headersForm').reset();
+        document.getElementById('uploadForm').reset();
+        
+        // Reset to first tab
+        const firstTab = new bootstrap.Tab(document.getElementById('paste-tab'));
+        firstTab.show();
+    });
 
-        document.getElementById('uploadForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const file = document.getElementById('emlFile').files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    // In a real app, you would send this to your backend for analysis
-                    console.log('File content:', e.target.result);
-                    analyzeMessage();
-                };
-                reader.readAsText(file);
-            }
-        });
-
-        // New analysis button
-        document.getElementById('newAnalysisBtn').addEventListener('click', function() {
-            document.getElementById('resultsSection').style.display = 'none';
-            document.getElementById('emailHeaders').value = '';
-            document.getElementById('emlFile').value = '';
-            document.getElementById('headersForm').reset();
-            document.getElementById('uploadForm').reset();
-            
-            // Reset to first tab
-            const firstTab = new bootstrap.Tab(document.getElementById('paste-tab'));
-            firstTab.show();
-        });
-
-        // Copy headers button
-        document.getElementById('copyHeadersBtn').addEventListener('click', function() {
-            const headers = document.getElementById('rawHeaders').textContent;
-            navigator.clipboard.writeText(headers).then(() => {
-                const originalText = this.innerHTML;
-                this.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied!';
-                setTimeout(() => {
-                    this.innerHTML = originalText;
-                }, 2000);
-            });
-        });
-
-        // Simulate analysis (in a real app, this would be an API call)
-        function analyzeMessage() {
-            // Show loading state
-            const submitBtns = document.querySelectorAll('#headersForm button, #uploadForm button');
-            submitBtns.forEach(btn => {
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Analyzing...';
-            });
-
-            // Simulate API delay
+    // Copy headers button
+    document.getElementById('copyHeadersBtn').addEventListener('click', function() {
+        const headers = document.getElementById('rawHeaders').textContent;
+        navigator.clipboard.writeText(headers).then(() => {
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied!';
             setTimeout(() => {
-                // Show results
-                document.getElementById('resultsSection').style.display = 'block';
-                
-                // Reset buttons
-                submitBtns.forEach(btn => {
-                    btn.disabled = false;
-                    btn.innerHTML = btn.id.includes('headers') ? 
-                        '<i class="bi bi-search me-1"></i> Analyze Headers' : 
-                        '<i class="bi bi-upload me-1"></i> Upload & Analyze';
-                });
+                this.innerHTML = originalText;
+            }, 2000);
+        });
+    });
 
-                // Scroll to results
-                document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
-            }, 1500);
-        }
-    </script>
-</body>
-</html>
+    // Simulate analysis
+    function analyzeMessage() {
+        // Show loading state
+        const submitBtns = document.querySelectorAll('#headersForm button, #uploadForm button');
+        submitBtns.forEach(btn => {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Analyzing...';
+        });
+
+        // Simulate API delay
+        setTimeout(() => {
+            // Show results
+            document.getElementById('resultsSection').style.display = 'block';
+            
+            // Reset buttons
+            submitBtns.forEach(btn => {
+                btn.disabled = false;
+                btn.innerHTML = btn.id.includes('headers') ? 
+                    '<i class="bi bi-search me-1"></i> Analyze Headers' : 
+                    '<i class="bi bi-upload me-1"></i> Upload & Analyze';
+            });
+
+            // Scroll to results
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+        }, 1500);
+    }
+</script>
+{% endblock %}

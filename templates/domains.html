@@ -1,321 +1,233 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="auto">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Domains Management | DMARCus</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        .domain-status-badge {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 6px;
-        }
-        .domain-status-active {
-            background-color: #28a745;
-        }
-        .domain-status-inactive {
-            background-color: #dc3545;
-        }
-        .domain-status-pending {
-            background-color: #ffc107;
-        }
-        .progress-sm {
-            height: 0.5rem;
-        }
-        .table-actions {
-            white-space: nowrap;
-        }
-    </style>
-</head>
-<body class="bg-light">
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="sidebar-brand d-flex flex-column align-items-center justify-content-center py-4 mb-2">
-            <div class="sidebar-brand-icon">
-                <img src="{{ url_for('static', filename='logo_dmarcus.png') }}" alt="DMARCus Logo" style="width: 60px; height: 60px;">
-            </div>
-            <div class="sidebar-brand-text mx-2 text-white">DMARCus</div>
-        </div>
-        <hr class="sidebar-divider my-0">
-        
-        <!-- Nav Items -->
-        <div class="nav-item">
-            <a class="nav-link" href="/dashboard">
-                <i class="bi bi-speedometer2"></i>
-                <span>Dashboard</span>
-            </a>
-        </div>
-        
-        <div class="nav-item">
-            <a class="nav-link" href="/all_reports">
-                <i class="bi bi-file-earmark-text"></i>
-                <span>Reports</span>
-            </a>
-        </div>
-        
-        <div class="nav-item">
-            <a class="nav-link active" href="/domains">
-                <i class="bi bi-globe"></i>
-                <span>Domains</span>
-            </a>
-        </div>
-        
-        <div class="nav-item">
-            <a class="nav-link" href="/settings">
-                <i class="bi bi-gear"></i>
-                <span>Settings</span>
-            </a>
-        </div>
-        
-        <hr class="sidebar-divider">
-        
-        <div class="sidebar-heading">Tools</div>
-        
-        <div class="nav-item">
-            <a class="nav-link" href="/analyzer">
+{% extends "base.html" %}
+
+{% block title %}Domains Management | DMARCus{% endblock %}
+
+{% block extra_css %}
+<style>
+    .domain-status-badge {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+    }
+    .domain-status-active {
+        background-color: #28a745;
+    }
+    .domain-status-inactive {
+        background-color: #dc3545;
+    }
+    .domain-status-pending {
+        background-color: #ffc107;
+    }
+    .progress-sm {
+        height: 0.5rem;
+    }
+    .table-actions {
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-0 text-gray-800">Domains Management</h1>
+        <small class="text-muted">Manage your monitored domains and DMARC policies</small>
+    </div>
+    <div class="mt-3 mt-md-0">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDomainModal">
+            <i class="bi bi-plus-circle me-1"></i> Add Domain
+        </button>
+    </div>
+</div>
+
+<div class="card shadow mb-4 fade-in">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">Your Domains</h6>
+        <div class="input-group" style="width: 250px;">
+            <input type="text" class="form-control" placeholder="Search domains..." id="domainSearch">
+            <button class="btn btn-outline-secondary" type="button">
                 <i class="bi bi-search"></i>
-                <span>Message Analyzer</span>
-            </a>
-        </div>
-        
-        <div class="nav-item">
-            <a class="nav-link" href="/policy-generator">
-                <i class="bi bi-shield-plus"></i>
-                <span>Policy Generator</span>
-            </a>
-        </div>
-        
-        <hr class="sidebar-divider d-none d-md-block">
-        
-        <div class="text-center d-none d-md-inline">
-            <button class="rounded-circle border-0" id="sidebarToggle">
-                <i class="bi bi-arrow-left"></i>
             </button>
         </div>
-        
-        <div class="version-info">
-            DMARCus v{{ version }}
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover" id="domainsTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Domain</th>
+                        <th>Status</th>
+                        <th>DMARC Policy</th>
+                        <th>Last Report</th>
+                        <th>Auth Score</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for domain in domains %}
+                    <tr>
+                        <td>{{ domain.name }}</td>
+                        <td>
+                            <span class="domain-status-badge domain-status-{{ domain.status }}"></span>
+                            {{ domain.status|capitalize }}
+                        </td>
+                        <td>
+                            <span class="badge 
+                                {% if domain.dmarc_policy == 'reject' %}bg-danger
+                                {% elif domain.dmarc_policy == 'quarantine' %}bg-success
+                                {% else %}bg-warning{% endif %}">
+                                {{ domain.dmarc_policy }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if domain.last_report %}
+                                {{ domain.last_report }}
+                            {% else %}
+                                Never
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="progress progress-sm">
+                                <div class="progress-bar 
+                                    {% if domain.auth_score >= 90 %}bg-success
+                                    {% elif domain.auth_score >= 70 %}bg-warning
+                                    {% else %}bg-danger{% endif %}" 
+                                    role="progressbar" 
+                                    style="width: {{ domain.auth_score }}%">
+                                </div>
+                            </div>
+                            <small>{{ domain.auth_score }}%</small>
+                        </td>
+                        <td class="table-actions text-end">
+                            <button class="btn btn-sm btn-outline-primary me-1 edit-domain" 
+                                    title="Edit" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editDomainModal"
+                                    data-domain="{{ domain.name }}"
+                                    data-dmarc="{{ domain.dmarc_policy }}"
+                                    data-reporting="{{ domain.enable_reporting }}"
+                                    data-emails="{{ domain.report_emails|join(', ') }}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger delete-domain" 
+                                    title="Delete" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#deleteDomainModal"
+                                    data-domain="{{ domain.name }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
+</div>
 
-    <!-- Topbar -->
-    <nav class="navbar navbar-expand navbar-light topbar-compact">
-        <div class="d-flex align-items-center ms-auto">
-            <!-- Theme Toggle -->
-            <div class="nav-item compact-theme ms-2">
-                <a class="nav-link theme-toggle">
-                    <i class="bi bi-moon-fill"></i>
-                </a>
+<!-- Add Domain Modal -->
+<div class="modal fade" id="addDomainModal" tabindex="-1" aria-labelledby="addDomainModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="addDomainModalLabel">Add New Domain</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-        </div>
-    </nav>
-
-    <!-- Main Content -->
-    <div class="content">
-        <div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-4">
-            <div>
-                <h1 class="h3 mb-0 text-gray-800">Domains Management</h1>
-                <small class="text-muted">Manage your monitored domains and DMARC policies</small>
-            </div>
-            <div class="mt-3 mt-md-0">
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDomainModal">
-                    <i class="bi bi-plus-circle me-1"></i> Add Domain
-                </button>
-            </div>
-        </div>
-
-        <div class="card shadow mb-4 fade-in">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h6 class="m-0 font-weight-bold text-primary">Your Domains</h6>
-                <div class="input-group" style="width: 250px;">
-                    <input type="text" class="form-control" placeholder="Search domains..." id="domainSearch">
-                    <button class="btn btn-outline-secondary" type="button">
-                        <i class="bi bi-search"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover" id="domainsTable">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Domain</th>
-                                <th>Status</th>
-                                <th>DMARC Policy</th>
-                                <th>Last Report</th>
-                                <th>Auth Score</th>
-                                <th class="text-end">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>example.com</td>
-                                <td><span class="domain-status-badge domain-status-active"></span> Active</td>
-                                <td><span class="badge bg-success">quarantine</span></td>
-                                <td>2 hours ago</td>
-                                <td>
-                                    <div class="progress progress-sm">
-                                        <div class="progress-bar bg-success" role="progressbar" style="width: 98%"></div>
-                                    </div>
-                                    <small>98%</small>
-                                </td>
-                                <td class="table-actions text-end">
-                                    <button class="btn btn-sm btn-outline-primary me-1" title="Edit" data-bs-toggle="modal" data-bs-target="#editDomainModal">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" title="Delete" data-bs-toggle="modal" data-bs-target="#deleteDomainModal">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>acme.org</td>
-                                <td><span class="domain-status-badge domain-status-active"></span> Active</td>
-                                <td><span class="badge bg-danger">reject</span></td>
-                                <td>1 day ago</td>
-                                <td>
-                                    <div class="progress progress-sm">
-                                        <div class="progress-bar bg-success" role="progressbar" style="width: 95%"></div>
-                                    </div>
-                                    <small>95%</small>
-                                </td>
-                                <td class="table-actions text-end">
-                                    <button class="btn btn-sm btn-outline-primary me-1" title="Edit" data-bs-toggle="modal" data-bs-target="#editDomainModal">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" title="Delete" data-bs-toggle="modal" data-bs-target="#deleteDomainModal">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>test.net</td>
-                                <td><span class="domain-status-badge domain-status-pending"></span> Pending</td>
-                                <td><span class="badge bg-warning">none</span></td>
-                                <td>Never</td>
-                                <td>
-                                    <div class="progress progress-sm">
-                                        <div class="progress-bar bg-secondary" role="progressbar" style="width: 0%"></div>
-                                    </div>
-                                    <small>N/A</small>
-                                </td>
-                                <td class="table-actions text-end">
-                                    <button class="btn btn-sm btn-outline-primary me-1" title="Edit" data-bs-toggle="modal" data-bs-target="#editDomainModal">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" title="Delete" data-bs-toggle="modal" data-bs-target="#deleteDomainModal">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add Domain Modal -->
-    <div class="modal fade" id="addDomainModal" tabindex="-1" aria-labelledby="addDomainModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="addDomainModalLabel">Add New Domain</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
+            <form method="POST" action="{{ url_for('domains') }}">
+                <input type="hidden" name="action" value="add">
                 <div class="modal-body">
-                    <form id="domainForm">
-                        <div class="mb-3">
-                            <label for="domainName" class="form-label">Domain Name</label>
-                            <input type="text" class="form-control" id="domainName" placeholder="example.com" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="dmarcPolicy" class="form-label">Initial DMARC Policy</label>
-                            <select class="form-select" id="dmarcPolicy" required>
-                                <option value="none">none (monitoring only)</option>
-                                <option value="quarantine">quarantine</option>
-                                <option value="reject">reject</option>
-                            </select>
-                        </div>
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="enableReporting" checked>
-                            <label class="form-check-label" for="enableReporting">Enable reporting for this domain</label>
-                        </div>
-                        <div class="mb-3">
-                            <label for="reportEmails" class="form-label">Report Email Addresses</label>
-                            <input type="text" class="form-control" id="reportEmails" placeholder="mailto:reports@example.com">
-                            <div class="form-text">Separate multiple addresses with commas</div>
-                        </div>
-                    </form>
+                    <div class="mb-3">
+                        <label for="domainName" class="form-label">Domain Name</label>
+                        <input type="text" class="form-control" id="domainName" name="domain_name" placeholder="example.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="dmarcPolicy" class="form-label">Initial DMARC Policy</label>
+                        <select class="form-select" id="dmarcPolicy" name="dmarc_policy" required>
+                            <option value="none">none (monitoring only)</option>
+                            <option value="quarantine">quarantine</option>
+                            <option value="reject">reject</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="enableReporting" name="enable_reporting" checked>
+                        <label class="form-check-label" for="enableReporting">Enable reporting for this domain</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="reportEmails" class="form-label">Report Email Addresses</label>
+                        <input type="text" class="form-control" id="reportEmails" name="report_emails" placeholder="mailto:reports@example.com">
+                        <div class="form-text">Separate multiple addresses with commas</div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="saveDomainBtn">Save Domain</button>
+                    <button type="submit" class="btn btn-primary">Save Domain</button>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
+</div>
 
-    <!-- Edit Domain Modal -->
-    <div class="modal fade" id="editDomainModal" tabindex="-1" aria-labelledby="editDomainModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="editDomainModalLabel">Edit Domain</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
+<!-- Edit Domain Modal -->
+<div class="modal fade" id="editDomainModal" tabindex="-1" aria-labelledby="editDomainModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="editDomainModalLabel">Edit Domain</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('domains') }}">
+                <input type="hidden" name="action" value="update">
+                <input type="hidden" name="domain_name" id="editDomainNameInput">
                 <div class="modal-body">
-                    <form id="editDomainForm">
-                        <div class="mb-3">
-                            <label for="editDomainName" class="form-label">Domain Name</label>
-                            <input type="text" class="form-control" id="editDomainName" value="example.com" readonly>
-                        </div>
-                        <div class="mb-3">
-                            <label for="editDmarcPolicy" class="form-label">DMARC Policy</label>
-                            <select class="form-select" id="editDmarcPolicy" required>
-                                <option value="none">none (monitoring only)</option>
-                                <option value="quarantine" selected>quarantine</option>
-                                <option value="reject">reject</option>
-                            </select>
-                        </div>
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="editEnableReporting" checked>
-                            <label class="form-check-label" for="editEnableReporting">Enable reporting for this domain</label>
-                        </div>
-                        <div class="mb-3">
-                            <label for="editReportEmails" class="form-label">Report Email Addresses</label>
-                            <input type="text" class="form-control" id="editReportEmails" value="mailto:reports@example.com">
-                            <div class="form-text">Separate multiple addresses with commas</div>
-                        </div>
-                    </form>
+                    <div class="mb-3">
+                        <label class="form-label">Domain Name</label>
+                        <input type="text" class="form-control" id="editDomainName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDmarcPolicy" class="form-label">DMARC Policy</label>
+                        <select class="form-select" id="editDmarcPolicy" name="dmarc_policy" required>
+                            <option value="none">none (monitoring only)</option>
+                            <option value="quarantine">quarantine</option>
+                            <option value="reject">reject</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="editEnableReporting" name="enable_reporting">
+                        <label class="form-check-label" for="editEnableReporting">Enable reporting for this domain</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editReportEmails" class="form-label">Report Email Addresses</label>
+                        <input type="text" class="form-control" id="editReportEmails" name="report_emails">
+                        <div class="form-text">Separate multiple addresses with commas</div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="updateDomainBtn">Update Domain</button>
+                    <button type="submit" class="btn btn-primary">Update Domain</button>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
+</div>
 
-    <!-- Delete Domain Modal -->
-    <div class="modal fade" id="deleteDomainModal" tabindex="-1" aria-labelledby="deleteDomainModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title" id="deleteDomainModalLabel">Confirm Deletion</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
+<!-- Delete Domain Modal -->
+<div class="modal fade" id="deleteDomainModal" tabindex="-1" aria-labelledby="deleteDomainModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteDomainModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('domains') }}" id="deleteDomainForm">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="domain_name" id="deleteDomainName">
                 <div class="modal-body">
-                    <p>Are you sure you want to delete the domain <strong>example.com</strong>?</p>
+                    <p>Are you sure you want to delete the domain <strong id="domainToDelete">example.com</strong>?</p>
                     <p class="text-danger">All associated reports and data will be permanently deleted.</p>
                     <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="confirmDelete">
+                        <input class="form-check-input" type="checkbox" id="confirmDelete" name="confirm_delete">
                         <label class="form-check-label" for="confirmDelete">
                             I understand this action cannot be undone
                         </label>
@@ -323,15 +235,67 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn" disabled>Delete Domain</button>
+                    <button type="submit" class="btn btn-danger" id="confirmDeleteBtn" disabled>Delete Domain</button>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
+</div>
+{% endblock %}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Theme toggle implementation
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inizializzazione modali
+        const editDomainModal = new bootstrap.Modal(document.getElementById('editDomainModal'));
+        const deleteDomainModal = new bootstrap.Modal(document.getElementById('deleteDomainModal'));
+
+        // Gestione pulsanti modifica
+        document.querySelectorAll('.edit-domain').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const domainName = this.dataset.domain;
+                const dmarcPolicy = this.dataset.dmarc;
+                const enableReporting = this.dataset.reporting === 'true';
+                const reportEmails = this.dataset.emails;
+                
+                document.getElementById('editDomainNameInput').value = domainName;
+                document.getElementById('editDomainName').value = domainName;
+                document.getElementById('editDmarcPolicy').value = dmarcPolicy;
+                document.getElementById('editEnableReporting').checked = enableReporting;
+                document.getElementById('editReportEmails').value = reportEmails;
+            });
+        });
+
+        // Gestione pulsanti eliminazione
+        document.querySelectorAll('.delete-domain').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const domainName = this.dataset.domain;
+                document.getElementById('domainToDelete').textContent = domainName;
+                document.getElementById('deleteDomainName').value = domainName;
+                
+                // Resetta la checkbox
+                document.getElementById('confirmDelete').checked = false;
+                document.getElementById('confirmDeleteBtn').disabled = true;
+            });
+        });
+
+        // Abilita/disabilita pulsante di conferma eliminazione
+        document.getElementById('confirmDelete').addEventListener('change', function() {
+            document.getElementById('confirmDeleteBtn').disabled = !this.checked;
+        });
+
+        // Ricerca domini
+        document.getElementById('domainSearch').addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#domainsTable tbody tr');
+            
+            rows.forEach(row => {
+                const domain = row.cells[0].textContent.toLowerCase();
+                row.style.display = domain.includes(searchTerm) ? '' : 'none';
+            });
+        });
+
+        // Toggle tema
         document.querySelector('.theme-toggle').addEventListener('click', function() {
             const htmlEl = document.documentElement;
             const currentTheme = htmlEl.getAttribute('data-bs-theme');
@@ -341,76 +305,14 @@
             localStorage.setItem('theme', newTheme);
         });
 
-        // Check for saved theme preference
+        // Carica tema salvato
         if (localStorage.getItem('theme')) {
             document.documentElement.setAttribute('data-bs-theme', localStorage.getItem('theme'));
-            document.querySelector('.theme-toggle i').className = localStorage.getItem('theme') === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+            const icon = document.querySelector('.theme-toggle i');
+            if (icon) {
+                icon.className = localStorage.getItem('theme') === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+            }
         }
-
-        // Save domain functionality
-        document.getElementById('saveDomainBtn').addEventListener('click', function() {
-            const domainName = document.getElementById('domainName').value;
-            const dmarcPolicy = document.getElementById('dmarcPolicy').value;
-            
-            // Here you would typically make an AJAX call to your backend
-            console.log('Adding domain:', domainName, 'with policy:', dmarcPolicy);
-            
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addDomainModal'));
-            modal.hide();
-            
-            // Show success message (in a real app, you'd want to verify the server response first)
-            alert(`Domain ${domainName} added successfully!`);
-        });
-
-        // Update domain functionality
-        document.getElementById('updateDomainBtn').addEventListener('click', function() {
-            const domainName = document.getElementById('editDomainName').value;
-            const dmarcPolicy = document.getElementById('editDmarcPolicy').value;
-            
-            // Here you would typically make an AJAX call to your backend
-            console.log('Updating domain:', domainName, 'with policy:', dmarcPolicy);
-            
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('editDomainModal'));
-            modal.hide();
-            
-            // Show success message
-            alert(`Domain ${domainName} updated successfully!`);
-        });
-
-        // Delete confirmation toggle
-        document.getElementById('confirmDelete').addEventListener('change', function() {
-            document.getElementById('confirmDeleteBtn').disabled = !this.checked;
-        });
-
-        // Delete domain functionality
-        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
-            // Here you would typically make an AJAX call to your backend
-            console.log('Deleting domain: example.com');
-            
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteDomainModal'));
-            modal.hide();
-            
-            // Show success message
-            alert('Domain example.com has been deleted.');
-        });
-
-        // Domain search functionality
-        document.getElementById('domainSearch').addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const rows = document.querySelectorAll('#domainsTable tbody tr');
-            
-            rows.forEach(row => {
-                const domain = row.cells[0].textContent.toLowerCase();
-                if (domain.includes(searchTerm)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-        });
-    </script>
-</body>
-</html>
+    });
+</script>
+{% endblock %}
