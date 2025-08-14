@@ -54,26 +54,34 @@
 {% endblock %}
 
 {% block content %}
+<div class="container-fluid main-content">
+    <div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">DMAC report uploader</h1>
+            <small class="text-muted">A form to add your reports</small>
+        </div>
+    </div>
 <div class="card shadow mb-4 upload-card fade-in">
-    <div class="card-header bg-primary text-white">
-        <h6 class="m-0 font-weight-bold">Upload DMARC Report</h6>
+    
+    <div class="card-header bg-white">
+        <h6 class="m-0 font-weight-bold text-primary">Upload DMARC Report</h6>
     </div>
     <div class="card-body">
         <form method="POST" action="/upload" enctype="multipart/form-data" id="uploadForm">
             <div class="mb-4 text-center">
-                <i class="bi bi-cloud-arrow-up upload-icon"></i>
+
                 <h3 class="mb-3">Upload DMARC Report</h3>
-                <p class="text-muted">Select a DMARC report file in XML or GZIP format</p>
+                <p class="text-muted">Select a DMARC report file in XML, GZIP or ZIP format</p>
             </div>
 
             <div class="mb-4">
                 <div class="dropzone" id="dropzone">
                     <i class="bi bi-cloud-arrow-up dropzone-icon"></i>
                     <p class="dropzone-text">Drag & drop your DMARC report here or click to browse</p>
-                    <input type="file" name="files" id="fileInput" class="d-none" accept=".xml,.xml.gz" multiple required>
+                    <input type="file" name="files" id="fileInput" class="d-none" accept=".xml,.xml.gz,.zip" multiple required>
                 </div>
                 <div class="form-text mt-2">
-                    Supported formats: .xml (XML report) or .xml.gz (GZIP compressed XML)
+                    Supported formats: .xml (XML report), .xml.gz (GZIP compressed XML) or .zip (ZIP archive)
                 </div>
             </div>
 
@@ -142,8 +150,8 @@
         // Update dropzone appearance
         function updateDropzone(file) {
             // Validate file type
-            if (!file.name.match(/\.(xml|xml\.gz)$/i)) {
-                alert('Only .xml and .xml.gz files are allowed.');
+            if (!file.name.match(/\.(xml|xml\.gz|zip)$/i)) {
+                alert('Only .xml, .xml.gz and .zip files are allowed.');
                 return;
             }
 

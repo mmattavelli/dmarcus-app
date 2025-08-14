@@ -28,8 +28,8 @@
     </div>
 
     <div class="card shadow mb-4">
-        <div class="card-header bg-primary text-white">
-            <h6 class="m-0 font-weight-bold">Report Summary</h6>
+        <div class="card-header bg-white">
+            <h6 class="m-0 font-weight-bold text-primary">Report Summary</h6>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -85,6 +85,7 @@
 <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 <script>
+    
     $(document).ready(function() {
         $('#reportsTable').DataTable({
             responsive: true,
@@ -92,6 +93,21 @@
             language: {
                 search: "_INPUT_",
                 searchPlaceholder: "Search reports...",
+            },
+            dom: '<"top"<"row"<"col-md-6"l><"col-md-6"f>>>rt<"bottom"<"row"<"col-md-6"i><"col-md-6"p>>>',
+            initComplete: function() {
+                // Custom search input styling
+                $('.dataTables_filter input').addClass('form-control');
+                $('.dataTables_filter label').contents().filter(function() {
+                    return this.nodeType === 3;
+                }).remove();
+                $('.dataTables_filter').addClass('float-end').css('margin-bottom', '15px');
+                
+                // Theme handling
+                if (document.documentElement.getAttribute('data-bs-theme') === 'dark') {
+                    $('.dataTables_filter input').addClass('bg-dark text-light border-secondary');
+                    $('.dataTables_length select').addClass('bg-dark text-light border-secondary');
+                }
             },
             columnDefs: [
                 { 
@@ -121,14 +137,9 @@
                     orderable: false,
                     searchable: false
                 }
-            ],
-            initComplete: function() {
-                // Handle theme for search input
-                if (document.documentElement.getAttribute('data-bs-theme') === 'dark') {
-                    $('.dataTables_filter input').addClass('form-control-dark');
-                }
-            }
+            ]
         });
     });
+
 </script>
 {% endblock %}
