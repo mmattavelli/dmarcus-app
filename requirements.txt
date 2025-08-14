@@ -1,0 +1,7 @@
+Flask
+Flask-Session
+Flask-Limiter
+Flask-WTF
+geoip2
+defusedxml
+python-magic
