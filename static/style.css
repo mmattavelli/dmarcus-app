@@ -630,3 +630,13 @@ body.bg-light {
 [data-bs-theme="dark"] .h6 {
     color: #ffffff !important;
 }
+
+
+
+.alert.fade-out {
+    transition: opacity 0.5s ease-in-out;
+    opacity: 1;
+}
+.alert.fade-out.hide {
+    opacity: 0;
+}
