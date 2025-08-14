@@ -1,12 +1,13 @@
 import gzip
 import shutil
-from flask import Flask, render_template_string, request, redirect, url_for, flash, make_response
+from flask import Flask, render_template, request, redirect, url_for, flash, make_response, session
 import os
 from xml.etree import ElementTree as ET
 from datetime import datetime, timedelta
 from collections import defaultdict
 import json
 import csv
+import time
 from io import StringIO
 import ipaddress
 import geoip2.database
@@ -14,9 +15,15 @@ from werkzeug.utils import secure_filename
 from database import load_reports, save_reports, add_report
 from flask import render_template
 import re
-
 import logging
 logging.basicConfig(filename='dmarcus.log', level=logging.INFO)
+import secrets
+from functools import wraps
+from flask_session import Session
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect, generate_csrf, validate_csrf
+from werkzeug.exceptions import abort, BadRequest
 
 # Setup GeoIP (commentato se non disponibile)
 # geoip_reader = geoip2.database.Reader('GeoLite2-City.mmdb')
@@ -25,12 +32,31 @@ __version__ = "0.6"
 app = Flask(__name__)
 print("Static folder path:", app.static_folder)
 
-app.secret_key = 'supersecretkey'
+app.secret_key = os.urandom(24)
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_FILE_DIR'] = './flask_session'  # Directory per memorizzare le sessioni
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 DB_FILE = 'dmarc_reports.json'
 DOMAINS_FILE = 'domains.json'
+
+
+ALLOWED_EXTENSIONS = {'xml', 'gz', 'zip'}
+
+
+
+
+app.config.update(
+    SESSION_COOKIE_SECURE=False,    # True in produzione con HTTPS
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Strict',
+    PERMANENT_SESSION_LIFETIME=timedelta(minutes=30)
+)
+
+csrf = CSRFProtect(app)
 
 # Create upload folder if it doesn't exist
 if not os.path.exists(UPLOAD_FOLDER):
@@ -40,8 +66,28 @@ if not os.path.exists(UPLOAD_FOLDER):
 reports_data = []
 domains_data = []
 
+# Configurazione credenziali (puoi spostarle in un file di configurazione)
+VALID_CREDENTIALS = {
+    'username': os.environ.get('DMARCUS_USER', 'dmarc'),
+    'password': os.environ.get('DMARCUS_PASS', 'dmarc')  # Da cambiare in produzione
+}
 
 
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
+
+@app.context_processor
+def inject_now():
+    return {'now': datetime.now()}
+
+
+@app.before_request
+def check_csrf():
+    if request.method == "POST":
+        csrf.protect()
 
 def init_db():
     """Initialize database files if they don't exist"""
@@ -72,6 +118,26 @@ def init_db():
                 json.dump({"domains": [], "last_updated": None}, f)
 
 
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+
+
+
+
+
+# Decoratore per proteggere le route che richiedono autenticazione
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('logged_in'):
+            flash('Please login to access this page', 'warning')
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
 
 def analyze_email_headers(headers):
     """Analyze email headers for DMARC, SPF, DKIM"""
@@ -426,23 +492,38 @@ def aggregate_reports(report_ids):
     }
 
 def parse_dmarc_report(file):
+    """Parse a DMARC report file (XML, GZ or ZIP)"""
     try:
-        # Leggi il contenuto del file in memoria
+        # Read file content
         if file.filename.endswith('.gz'):
-            # Se è un file gzip, decomprimi in memoria
+            # Handle GZIP files
             import gzip
             import io
             file_content = file.read()
             with gzip.open(io.BytesIO(file_content), 'rb') as f_in:
                 content = f_in.read().decode('utf-8')
+        elif file.filename.endswith('.zip'):
+            # Handle ZIP files
+            import zipfile
+            import io
+            file_content = file.read()
+            with zipfile.ZipFile(io.BytesIO(file_content)) as zip_file:
+                # Extract first XML file found in the archive
+                for name in zip_file.namelist():
+                    if name.lower().endswith('.xml'):
+                        with zip_file.open(name) as f_in:
+                            content = f_in.read().decode('utf-8')
+                            break
+                else:
+                    raise ValueError("No XML file found in ZIP archive")
         else:
-            # Se è un file XML normale, leggi direttamente
+            # Handle plain XML files
             content = file.read().decode('utf-8')
         
-        # Resetta il puntatore del file dopo la lettura
+        # Reset file pointer
         file.seek(0)
         
-        # Parsing del contenuto XML
+        # Parse XML
         root = ET.fromstring(content)
         
         # Resto del codice rimane uguale...
@@ -721,12 +802,13 @@ def generate_stats(reports_data, time_filter='30days'):
 # Routes
 @app.route('/', methods=['GET'])
 def index():
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
 
 
 
 
 @app.route('/dashboard')
+@login_required
 def dashboard():
     try:
         time_filter = request.args.get('time_filter', '30days')
@@ -829,6 +911,7 @@ def dashboard():
         flash(f"An unexpected error occurred: {str(e)}", "error")
         return redirect(url_for('dashboard', time_filter='30days'))
 
+
 @app.route('/report/<org_name>')
 @app.route('/report/<org_name>/<report_id>')
 def report_detail(org_name, report_id=None):
@@ -884,42 +967,187 @@ def report_detail(org_name, report_id=None):
         flash(f"System error: {str(e)}", "error")
         return redirect(url_for('dashboard', time_filter='30days'))
 
+@app.route('/all_reports')
+@login_required
+def all_reports():
+    try:
+        # Group reports by org and domain
+        org_domain_map = defaultdict(lambda: defaultdict(list))
+        for report in reports_data:
+            org_domain_map[report['org']][report['policy']['domain']].append(report)
+        
+        grouped_reports = []
+        for org, domains in org_domain_map.items():
+            for domain, reports in domains.items():
+                total_records = sum(len(r['records']) for r in reports)
+                pass_count = 0
+                total_auth = 0
+                report_details = []
+                
+                for report in reports:
+                    report_details.append({
+                        'id': reports_data.index(report),
+                        'date': report['date_range']['start'],
+                        'report_id': report['report_id']
+                    })
+                    for record in report['records']:
+                        total_auth += 2  # SPF + DKIM
+                        if record['spf'] == 'pass':
+                            pass_count += 1
+                        if record['dkim'] == 'pass':
+                            pass_count += 1
+                
+                pass_rate = round((pass_count / total_auth * 100), 1) if total_auth > 0 else 0
+                
+                grouped_reports.append({
+                    'org': org,
+                    'domain': domain,
+                    'total_reports': len(reports),
+                    'total_records': total_records,
+                    'pass_rate': pass_rate,
+                    'reports': report_details,
+                    'date_range': {
+                        'start': min(r['date_range']['start'] for r in reports),
+                        'end': max(r['date_range']['end'] for r in reports)
+                    }
+                })
+        
+        return render_template(
+            'all_reports.html',
+            grouped_reports=grouped_reports,
+            version=__version__
+        )
+
+    except Exception as e:
+        flash(f"An unexpected error occurred: {str(e)}", "error")
+        return redirect(url_for('dashboard'))
 
 @app.route('/upload', methods=['GET', 'POST'])
+@login_required
+@limiter.limit("10 per minute")  # Limita gli upload per prevenire abusi
 def upload_file():
     if request.method == 'GET':
-        return render_template('upload.html')
+        # Genera un nuovo token CSRF per il form
+        csrf_token = generate_csrf()
+        return render_template('upload.html', version=__version__, csrf_token=csrf_token)
     
-    # Se è una richiesta POST
-    file = request.files.get('files')
+    # Verifica CSRF token per le richieste POST
+    try:
+        validate_csrf(request.form.get('csrf_token'))
+    except (BadRequest, ValueError) as e:
+        app.logger.warning(f"CSRF validation failed on upload: {str(e)}")
+        flash('Invalid CSRF token', 'danger')
+        return redirect(url_for('upload_file'))
     
-    if not file or file.filename == '':
-        flash('Nessun file selezionato', 'error')
-        return redirect(request.url)
+    # Controlla se è stato fornito un file
+    if 'file' not in request.files:
+        flash('No file selected', 'error')
+        return redirect(url_for('upload_file'))
+    
+    file = request.files['file']
+    
+    # Validazione base del file
+    if file.filename == '':
+        flash('No selected file', 'error')
+        return redirect(url_for('upload_file'))
+    
+    # Controllo estensione file sicuro
+    if not allowed_file(file.filename):
+        flash('Unsupported file format. Please use .xml, .gz or .zip', 'error')
+        return redirect(url_for('upload_file'))
+    
+    # Limita dimensione file (16MB come configurato nell'app)
+    try:
+        file.seek(0, os.SEEK_END)
+        file_length = file.tell()
+        file.seek(0)
         
-    # Controllo estensione file
-    if not (file.filename.lower().endswith('.xml') or file.filename.lower().endswith('.xml.gz')):
-        flash('Formato file non supportato. Usare solo .xml o .xml.gz', 'error')
-        return redirect(request.url)
+        if file_length > app.config['MAX_CONTENT_LENGTH']:
+            flash('File too large (max 16MB allowed)', 'error')
+            return redirect(url_for('upload_file'))
+    except OSError as e:
+        app.logger.error(f"Error checking file size: {str(e)}")
+        flash('Error processing file', 'error')
+        return redirect(url_for('upload_file'))
     
     try:
-        # Processa il file
-        report = parse_dmarc_report(file)
+        # Processa il file in modo sicuro
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], f"temp_{secrets.token_hex(8)}_{filename}")
+        file.save(temp_path)
+        
+        # Apri il file salvato invece di lavorare direttamente con l'upload
+        with open(temp_path, 'rb') as f:
+            report = parse_dmarc_report(f)
+        
+        # Pulizia del file temporaneo
+        try:
+            os.remove(temp_path)
+        except OSError as e:
+            app.logger.warning(f"Could not delete temp file {temp_path}: {str(e)}")
         
         if 'error' in report:
-            flash(f'Errore nel report: {report["error"]}', 'error')
-            return redirect(request.url)
+            flash(f'Report error: {report["error"]}', 'error')
+            return redirect(url_for('upload_file'))
             
+        # Verifica se il report esiste già
         if report_id_exists(report['report_id']):
-            flash(f'Report ID {report["report_id"]} già esistente!', 'error')
-            return redirect(request.url)
+            flash(f'Report ID {report["report_id"]} already exists!', 'warning')
+            return redirect(url_for('upload_file'))
             
+        # Aggiungi il report al database
         add_report(report)
-        flash('Report caricato con successo!', 'success')
+        
+        # Log dell'upload riuscito (senza informazioni sensibili)
+        app.logger.info(f"User {session.get('user_id', 'unknown')} uploaded report {report['report_id']}")
+        
+        flash('Report uploaded successfully!', 'success')
         return redirect(url_for('dashboard'))
         
+    except ValueError as e:
+        app.logger.warning(f"Invalid file content during upload: {str(e)}")
+        flash('Invalid file content', 'error')
+        return redirect(url_for('upload_file'))
+    except ET.ParseError as e:
+        app.logger.warning(f"Invalid XML format in upload: {str(e)}")
+        flash('Invalid XML format in the report file', 'error')
+        return redirect(url_for('upload_file'))
+    except zipfile.BadZipFile as e:
+        app.logger.warning(f"Invalid ZIP file upload: {str(e)}")
+        flash('Invalid ZIP file format', 'error')
+        return redirect(url_for('upload_file'))
+    except gzip.BadGzipFile as e:
+        app.logger.warning(f"Invalid GZIP file upload: {str(e)}")
+        flash('Invalid GZIP file format', 'error')
+        return redirect(url_for('upload_file'))
     except Exception as e:
-        flash(f'Errore: {str(e)}', 'error')
+        app.logger.error(f"Unexpected error during upload: {str(e)}", exc_info=True)
+        flash('An unexpected error occurred during file processing', 'error')
+        return redirect(url_for('upload_file'))
+
+
+def upload_file():
+    if 'file' not in request.files:
+        flash('No file selected', 'error')
+        return redirect(request.url)
+    
+    file = request.files['file']
+    if file.filename == '':
+        flash('No selected file', 'error')
+        return redirect(request.url)
+    
+    if not allowed_file(file.filename):
+        flash('Invalid file type', 'error')
+        return redirect(request.url)
+    
+    # Limita dimensione file
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    file.seek(0, os.SEEK_END)
+    file_length = file.tell()
+    file.seek(0)
+    
+    if file_length > MAX_FILE_SIZE:
+        flash('File too large', 'error')
         return redirect(request.url)
 
 
@@ -986,6 +1214,85 @@ def export_csv(org_name, report_id=None):
     output.headers["Content-Disposition"] = f"attachment; filename={filename}"
     output.headers["Content-type"] = "text/csv"
     return output
+
+@app.route('/export/csv/overview')
+@login_required
+def export_overview_csv():
+    try:
+        # Genera le statistiche complete come nella dashboard
+        time_filter = request.args.get('time_filter', '30days')
+        stats = generate_stats(reports_data, time_filter)
+        
+        # Crea un buffer per il CSV
+        si = StringIO()
+        cw = csv.writer(si)
+        
+        # Intestazione del report
+        cw.writerow(['DMARCus Analyzer - Overview Report'])
+        cw.writerow(['Generated at', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+        cw.writerow(['Time range', time_filter])
+        cw.writerow([])
+        
+        # Sezione statistiche generali
+        cw.writerow(['General Statistics'])
+        cw.writerow(['Total reports', stats['total_reports']])
+        cw.writerow(['Total emails analyzed', stats['total_emails']])
+        cw.writerow(['Authentication pass rate', f"{stats['policy_evaluation']['pct_compliance']}%"])
+        cw.writerow(['Internal emails', stats['internal_vs_external']['internal']])
+        cw.writerow(['External emails', stats['internal_vs_external']['external']])
+        cw.writerow([])
+        
+        # Sezione distribuzione domini
+        cw.writerow(['Domain Distribution'])
+        cw.writerow(['Domain', 'Report Count', 'Email Count'])
+        for domain, count in zip(stats['domain_distribution']['domains'], stats['domain_distribution']['counts']):
+            email_count = sum(len(r['records']) for r in reports_data if r['policy']['domain'] == domain)
+            cw.writerow([domain, count, email_count])
+        cw.writerow([])
+        
+        # Sezione risultati autenticazione
+        cw.writerow(['Authentication Results'])
+        cw.writerow(['Type', 'Count', 'Percentage'])
+        total_auth = sum(stats['auth_results'].values())
+        for auth_type, count in stats['auth_results'].items():
+            percentage = (count / total_auth * 100) if total_auth > 0 else 0
+            cw.writerow([
+                auth_type.replace('_', ' ').title(), 
+                count, 
+                f"{percentage:.1f}%"
+            ])
+        cw.writerow([])
+        
+        # Sezione top IP
+        cw.writerow(['Top 10 IP Addresses'])
+        cw.writerow(['IP Address', 'Email Count', 'Percentage'])
+        total_emails = stats['total_emails']
+        for ip, count in zip(stats['top_ips']['ips'], stats['top_ips']['counts']):
+            percentage = (count / total_emails * 100) if total_emails > 0 else 0
+            cw.writerow([ip, count, f"{percentage:.1f}%"])
+        cw.writerow([])
+        
+        # Sezione serie temporali
+        cw.writerow(['Time Series Data'])
+        cw.writerow(['Date', 'Reports', 'Emails'])
+        for date, r_count, e_count in zip(
+            stats['time_series_labels'],
+            stats['time_series_report_counts'],
+            stats['time_series_email_counts']
+        ):
+            cw.writerow([date, r_count, e_count])
+        
+        # Prepara la risposta
+        output = make_response(si.getvalue())
+        output.headers["Content-Disposition"] = "attachment; filename=dmarcus_overview_report.csv"
+        output.headers["Content-type"] = "text/csv"
+        return output
+        
+    except Exception as e:
+        flash(f"Error generating overview report: {str(e)}", "error")
+        return redirect(url_for('dashboard'))
+
+
 
 @app.route('/domains', methods=['GET', 'POST'])
 def domains():
@@ -1134,6 +1441,7 @@ def policy_generator():
     return render_template('policy_generator.html', version=__version__)
 
 @app.route('/analyzer', methods=['GET', 'POST'])
+@login_required
 def analyzer():
     if request.method == 'POST':
         if 'emlFile' in request.files:
@@ -1171,64 +1479,101 @@ def reload_reports():
     flash('Data reloaded successfully!', 'success')
     return redirect(url_for('dashboard'))
 
-@app.route('/all_reports')
-def all_reports():
-    try:
-        # Group reports by org and domain (stessa logica della dashboard)
-        org_domain_map = defaultdict(lambda: defaultdict(list))
-        for report in reports_data:
-            org_domain_map[report['org']][report['policy']['domain']].append(report)
-        
-        grouped_reports = []
-        for org, domains in org_domain_map.items():
-            for domain, reports in domains.items():
-                total_records = sum(len(r['records']) for r in reports)
-                pass_count = 0
-                total_auth = 0
-                report_details = []
-                
-                for report in reports:
-                    report_details.append({
-                        'id': reports_data.index(report),
-                        'date': report['date_range']['start']
-                    })
-                    for record in report['records']:
-                        total_auth += 2
-                        if record['spf'] == 'pass':
-                            pass_count += 1
-                        if record['dkim'] == 'pass':
-                            pass_count += 1
-                
-                pass_rate = round((pass_count / total_auth * 100), 1) if total_auth > 0 else 0
-                
-                grouped_reports.append({
-                    'org': org,
-                    'domain': domain,
-                    'total_reports': len(reports),
-                    'total_records': total_records,
-                    'pass_rate': pass_rate,
-                    'reports': report_details,
-                    'date_range': {
-                        'start': min(r['date_range']['start'] for r in reports),
-                        'end': max(r['date_range']['end'] for r in reports)
-                    }
-                })
-        
-        return render_template(
-            'all_reports.html',
-            grouped_reports=grouped_reports,
-            version=__version__
-        )
-
-    except Exception as e:
-        flash(f"An unexpected error occurred: {str(e)}", "error")
-        return redirect(url_for('dashboard'))
 
 @app.route('/api/domains', methods=['GET'])
 def api_domains():
     sync_domains()
     return jsonify(domains_data)
+
+@app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
+def login():
+    next_page = request.args.get('next') or url_for('dashboard')
     
+    if request.method == 'GET':
+        return render_template('login.html', next=next_page)
+    
+    # Verifica CSRF con gestione errori corretta
+    try:
+        validate_csrf(request.form.get('csrf_token'))
+    except (BadRequest, ValueError) as e:
+        flash('Invalid CSRF token', 'danger')
+        app.logger.warning(f"CSRF validation failed: {str(e)}")
+        return render_template('login.html', next=next_page)
+    
+    start_time = time.time()
+    
+    # Verifica credenziali con secrets.compare_digest
+    try:
+        authenticated = (
+            secrets.compare_digest(request.form['username'].encode('utf-8'), 
+                                 VALID_CREDENTIALS['username'].encode('utf-8')) and
+            secrets.compare_digest(request.form['password'].encode('utf-8'),
+                                 VALID_CREDENTIALS['password'].encode('utf-8'))
+        )
+    except KeyError:
+        authenticated = False
+    
+    # Timing costante
+    elapsed = time.time() - start_time
+    remaining = max(0.0, 1.0 - elapsed)
+    time.sleep(remaining)
+    
+    if authenticated:
+        session.clear()
+        session.permanent = True
+        session['user_id'] = secrets.token_urlsafe(32)
+        session['logged_in'] = True
+        session['login_time'] = int(time.time())
+        session['csrf_token'] = secrets.token_urlsafe(32)
+        
+        response = make_response(redirect(next_page))
+        response.set_cookie(
+            'dmarcus_auth', 
+            value=secrets.token_urlsafe(32),
+            httponly=True,
+            secure=True,
+            samesite='Lax',
+            max_age=3600
+        )
+        return response
+    
+    flash('Invalid username or password', 'danger')
+    return render_template('login.html', next=next_page)
+
+
+# Aggiungi questa route per il logout
+@app.route('/logout')
+def logout():
+    # Elimina tutti i dati della sessione
+    session.clear()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('login'))
+
+
+@app.after_request
+def add_security_headers(response):
+    # CSP - Content Security Policy
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net fonts.googleapis.com; "
+        "img-src 'self' data: cdn.jsdelivr.net; "
+        "font-src 'self' fonts.gstatic.com cdn.jsdelivr.net; "
+        "connect-src 'self'; "
+        "frame-ancestors 'self';"
+    )
+    response.headers['Content-Security-Policy'] = csp
+    
+    # Altre headers di sicurezza
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'  # Solo in HTTPS
+    
+    return response
+
 
 if __name__ == '__main__':
     reports_data = load_reports()
