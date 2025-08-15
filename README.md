@@ -5,6 +5,8 @@
 **DMARCus Analyzer** is a **Flask-based web application** for parsing, analyzing, and visualizing DMARC aggregate reports.  
 It provides system administrators and security teams with actionable insights to improve email authentication policies (DMARC, SPF, DKIM), detect anomalies, and monitor email traffic patterns.
 
+Developed by **Mattia Mattavelli** & **Luca Armiraglio**  
+
 This tool is designed for **on-premises deployment** with:
 - **Hardcoded credentials** for access control
 - **Flat-file JSON storage** (no external database)
@@ -131,7 +133,3 @@ In addition to the default protections, DMARCus Analyzer includes:
 
 ---
 
-## Authors
-
-Developed by **Mattia Mattavelli** & **Luca Armiraglio**  
-With additional security hardening and validation improvements based on code review.
