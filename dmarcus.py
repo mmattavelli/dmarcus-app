@@ -269,20 +269,41 @@ def parse_eml_file(file):
         return {'error': str(e)}
 
 def parse_dmarc_report(file):
-    """Parse a DMARC report file (XML or GZ)"""
+    """Parse a DMARC report file (XML, GZ or ZIP)"""
     try:
+        # Se è un file object di Flask (FileStorage), usa filename originale
+        # Se è un file object normale (dopo open()), usa un approccio diverso
+        filename = getattr(file, 'filename', None)
+        
         # Read file content
-        if file.filename.endswith('.gz'):
+        if filename and filename.endswith('.gz'):
+            # Handle GZIP files
             import gzip
             import io
             file_content = file.read()
             with gzip.open(io.BytesIO(file_content), 'rb') as f_in:
                 content = f_in.read().decode('utf-8')
+        elif filename and filename.endswith('.zip'):
+            # Handle ZIP files
+            import zipfile
+            import io
+            file_content = file.read()
+            with zipfile.ZipFile(io.BytesIO(file_content)) as zip_file:
+                # Extract first XML file found in the archive
+                for name in zip_file.namelist():
+                    if name.lower().endswith('.xml'):
+                        with zip_file.open(name) as f_in:
+                            content = f_in.read().decode('utf-8')
+                            break
+                else:
+                    raise ValueError("No XML file found in ZIP archive")
         else:
+            # Handle plain XML files o file aperti con open()
             content = file.read().decode('utf-8')
         
-        # Reset file pointer
-        file.seek(0)
+        # Reset file pointer se possibile
+        if hasattr(file, 'seek'):
+            file.seek(0)
         
         # Parse XML
         root = ET.fromstring(content)
@@ -1024,14 +1045,12 @@ def all_reports():
 
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
-@limiter.limit("10 per minute")  # Limita gli upload per prevenire abusi
+@limiter.limit("10 per minute")
 def upload_file():
     if request.method == 'GET':
-        # Genera un nuovo token CSRF per il form
         csrf_token = generate_csrf()
         return render_template('upload.html', version=__version__, csrf_token=csrf_token)
     
-    # Verifica CSRF token per le richieste POST
     try:
         validate_csrf(request.form.get('csrf_token'))
     except (BadRequest, ValueError) as e:
@@ -1039,87 +1058,37 @@ def upload_file():
         flash('Invalid CSRF token', 'danger')
         return redirect(url_for('upload_file'))
     
-    # Controlla se è stato fornito un file
     if 'file' not in request.files:
         flash('No file selected', 'error')
         return redirect(url_for('upload_file'))
     
     file = request.files['file']
     
-    # Validazione base del file
     if file.filename == '':
         flash('No selected file', 'error')
         return redirect(url_for('upload_file'))
     
-    # Controllo estensione file sicuro
     if not allowed_file(file.filename):
         flash('Unsupported file format. Please use .xml, .gz or .zip', 'error')
         return redirect(url_for('upload_file'))
     
-    # Limita dimensione file (16MB come configurato nell'app)
     try:
-        file.seek(0, os.SEEK_END)
-        file_length = file.tell()
-        file.seek(0)
-        
-        if file_length > app.config['MAX_CONTENT_LENGTH']:
-            flash('File too large (max 16MB allowed)', 'error')
-            return redirect(url_for('upload_file'))
-    except OSError as e:
-        app.logger.error(f"Error checking file size: {str(e)}")
-        flash('Error processing file', 'error')
-        return redirect(url_for('upload_file'))
-    
-    try:
-        # Processa il file in modo sicuro
-        filename = secure_filename(file.filename)
-        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], f"temp_{secrets.token_hex(8)}_{filename}")
-        file.save(temp_path)
-        
-        # Apri il file salvato invece di lavorare direttamente con l'upload
-        with open(temp_path, 'rb') as f:
-            report = parse_dmarc_report(f)
-        
-        # Pulizia del file temporaneo
-        try:
-            os.remove(temp_path)
-        except OSError as e:
-            app.logger.warning(f"Could not delete temp file {temp_path}: {str(e)}")
+        # Processa direttamente il file senza salvarlo temporaneamente
+        report = parse_dmarc_report(file)
         
         if 'error' in report:
             flash(f'Report error: {report["error"]}', 'error')
             return redirect(url_for('upload_file'))
             
-        # Verifica se il report esiste già
         if report_id_exists(report['report_id']):
             flash(f'Report ID {report["report_id"]} already exists!', 'warning')
             return redirect(url_for('upload_file'))
             
-        # Aggiungi il report al database
         add_report(report)
-        
-        # Log dell'upload riuscito (senza informazioni sensibili)
         app.logger.info(f"User {session.get('user_id', 'unknown')} uploaded report {report['report_id']}")
-        
         flash('Report uploaded successfully!', 'success')
         return redirect(url_for('dashboard'))
         
-    except ValueError as e:
-        app.logger.warning(f"Invalid file content during upload: {str(e)}")
-        flash('Invalid file content', 'error')
-        return redirect(url_for('upload_file'))
-    except ET.ParseError as e:
-        app.logger.warning(f"Invalid XML format in upload: {str(e)}")
-        flash('Invalid XML format in the report file', 'error')
-        return redirect(url_for('upload_file'))
-    except zipfile.BadZipFile as e:
-        app.logger.warning(f"Invalid ZIP file upload: {str(e)}")
-        flash('Invalid ZIP file format', 'error')
-        return redirect(url_for('upload_file'))
-    except gzip.BadGzipFile as e:
-        app.logger.warning(f"Invalid GZIP file upload: {str(e)}")
-        flash('Invalid GZIP file format', 'error')
-        return redirect(url_for('upload_file'))
     except Exception as e:
         app.logger.error(f"Unexpected error during upload: {str(e)}", exc_info=True)
         flash('An unexpected error occurred during file processing', 'error')
