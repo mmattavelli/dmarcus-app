@@ -68,8 +68,9 @@
     </div>
     <div class="card-body">
         <form method="POST" action="/upload" enctype="multipart/form-data" id="uploadForm">
-            <div class="mb-4 text-center">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
+            <div class="mb-4 text-center">
                 <h3 class="mb-3">Upload DMARC Report</h3>
                 <p class="text-muted">Select a DMARC report file in XML, GZIP or ZIP format</p>
             </div>
@@ -78,7 +79,7 @@
                 <div class="dropzone" id="dropzone">
                     <i class="bi bi-cloud-arrow-up dropzone-icon"></i>
                     <p class="dropzone-text">Drag & drop your DMARC report here or click to browse</p>
-                    <input type="file" name="files" id="fileInput" class="d-none" accept=".xml,.xml.gz,.zip" multiple required>
+                    <input type="file" name="file" id="fileInput" class="d-none" accept=".xml,.xml.gz,.zip" required>
                 </div>
                 <div class="form-text mt-2">
                     Supported formats: .xml (XML report), .xml.gz (GZIP compressed XML) or .zip (ZIP archive)
