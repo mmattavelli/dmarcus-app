@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}Message Analyzer | DMARCus Analyzer{% endblock %}
+
+{% block content %}
+<div class="container-fluid main-content">
+    <div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">Message Analyzer</h1>
+            <small class="text-muted">Analyze individual email messages for DMARC, SPF and DKIM validation</small>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4 fade-in">
+        <div class="card-header bg-white">
+            <ul class="nav nav-tabs card-header-tabs" id="analyzerTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="paste-tab" data-bs-toggle="tab" data-bs-target="#paste" type="button" role="tab">Paste Headers</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab">Upload EML</button>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body">
+            <div class="tab-content" id="analyzerTabsContent">
+                <div class="tab-pane fade show active" id="paste" role="tabpanel">
+                    <form id="headersForm">
+                        <div class="mb-3">
+                            <label for="emailHeaders" class="form-label">Email Headers</label>
+                            <textarea class="form-control font-monospace" id="emailHeaders" rows="10" placeholder="Paste the full email headers here..." required></textarea>
+                            <div class="form-text">Example: Received, DKIM-Signature, and Authentication-Results headers</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search me-1"></i> Analyze Headers
+                        </button>
+                    </form>
+                </div>
+                <div class="tab-pane fade" id="upload" role="tabpanel">
+                    <form id="uploadForm">
+                        <div class="mb-3">
+                            <label for="emlFile" class="form-label">EML File</label>
+                            <input type="file" class="form-control" id="emlFile" accept=".eml" required>
+                            <div class="form-text">Upload a .eml file to analyze (max 5MB)</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-upload me-1"></i> Upload & Analyze
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section (hidden by default) -->
+    <div class="card shadow mb-4 fade-in" id="resultsSection" style="display: none;">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Analysis Results</h6>
+            <button class="btn btn-sm btn-outline-secondary" id="newAnalysisBtn">
+                <i class="bi bi-arrow-repeat me-1"></i>New Analysis
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="message-header">
+                <h5>Message: <span id="messageSubject">Test email from example.com</span></h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>From:</strong> <span id="messageFrom">sender@example.com</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Date:</strong> <span id="messageDate">2023-12-15 14:30:22 UTC</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 analysis-result-card">
+                        <div class="card-body">
+                            <h5 class="card-title d-flex justify-content-between align-items-center">
+                                <span>DMARC</span>
+                                <span class="badge bg-success result-badge" id="dmarcBadge">PASS</span>
+                            </h5>
+                            <div class="auth-details">
+                                <div class="mb-2"><strong>Domain:</strong> <span id="dmarcDomain">example.com</span></div>
+                                <div class="mb-2"><strong>Policy:</strong> <span id="dmarcPolicy">quarantine</span></div>
+                                <div class="mb-2"><strong>Alignment:</strong> <span id="dmarcAlignment">Relaxed</span></div>
+                                <div><strong>Result:</strong> <span id="dmarcResult">Message would be quarantined</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 analysis-result-card">
+                        <div class="card-body">
+                            <h5 class="card-title d-flex justify-content-between align-items-center">
+                                <span>SPF</span>
+                                <span class="badge bg-success result-badge" id="spfBadge">PASS</span>
+                            </h5>
+                            <div class="auth-details">
+                                <div class="mb-2"><strong>Domain:</strong> <span id="spfDomain">example.com</span></div>
+                                <div class="mb-2"><strong>IP:</strong> <span id="spfIp">192.0.2.1</span></div>
+                                <div class="mb-2"><strong>Scope:</strong> <span id="spfScope">mfrom</span></div>
+                                <div><strong>Result:</strong> <span id="spfResult">Sender authorized</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 analysis-result-card">
+                        <div class="card-body">
+                            <h5 class="card-title d-flex justify-content-between align-items-center">
+                                <span>DKIM</span>
+                                <span class="badge bg-success result-badge" id="dkimBadge">PASS</span>
+                            </h5>
+                            <div class="auth-details">
+                                <div class="mb-2"><strong>Domain:</strong> <span id="dkimDomain">example.com</span></div>
+                                <div class="mb-2"><strong>Selector:</strong> <span id="dkimSelector">default</span></div>
+                                <div class="mb-2"><strong>Algorithm:</strong> <span id="dkimAlgorithm">rsa-sha256</span></div>
+                                <div><strong>Result:</strong> <span id="dkimResult">Signature valid</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Raw Headers</h6>
+                    <button class="btn btn-sm btn-outline-primary" id="copyHeadersBtn">
+                        <i class="bi bi-clipboard me-1"></i>Copy
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <pre class="bg-light p-3 m-0 rounded-bottom" id="rawHeaders"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Form submission handlers
+    document.getElementById('headersForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const headers = document.getElementById('emailHeaders').value;
+        if (headers.trim()) {
+            analyzeMessage(headers);
+        }
+    });
+
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const file = document.getElementById('emlFile').files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                analyzeMessage(e.target.result);
+            };
+            reader.readAsText(file);
+        }
+    });
+
+    // New analysis button
+    document.getElementById('newAnalysisBtn').addEventListener('click', function() {
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('emailHeaders').value = '';
+        document.getElementById('emlFile').value = '';
+        document.getElementById('headersForm').reset();
+        document.getElementById('uploadForm').reset();
+        
+        // Reset to first tab
+        const firstTab = new bootstrap.Tab(document.getElementById('paste-tab'));
+        firstTab.show();
+    });
+
+    // Copy headers button
+    document.getElementById('copyHeadersBtn').addEventListener('click', function() {
+        const headers = document.getElementById('rawHeaders').textContent;
+        navigator.clipboard.writeText(headers).then(() => {
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied!';
+            setTimeout(() => {
+                this.innerHTML = originalText;
+            }, 2000);
+        });
+    });
+
+    // Parse and analyze email headers/EML content
+    function analyzeMessage(content) {
+        // Show loading state
+        const submitBtns = document.querySelectorAll('#headersForm button, #uploadForm button');
+        submitBtns.forEach(btn => {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Analyzing...';
+        });
+
+        // Simulate API delay (in a real implementation, this would be an API call)
+        setTimeout(() => {
+            try {
+                // Parse the email content
+                const parsedData = parseEmailContent(content);
+                
+                // Update the UI with parsed data
+                updateResults(parsedData);
+                
+                // Show results
+                document.getElementById('resultsSection').style.display = 'block';
+                
+                // Scroll to results
+                document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                console.error('Error analyzing message:', error);
+                alert('Error analyzing message. Please check the format of your input.');
+            } finally {
+                // Reset buttons
+                submitBtns.forEach(btn => {
+                    btn.disabled = false;
+                    btn.innerHTML = btn.id.includes('headers') ? 
+                        '<i class="bi bi-search me-1"></i> Analyze Headers' : 
+                        '<i class="bi bi-upload me-1"></i> Upload & Analyze';
+                });
+            }
+        }, 1500);
+    }
+
+    // Parse email headers or EML content
+    function parseEmailContent(content) {
+        const lines = content.split('\n');
+        const headers = {};
+        let bodyStarted = false;
+        let currentHeader = '';
+        
+        // Parse headers
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            // Skip empty lines between headers and body
+            if (!line && !bodyStarted) {
+                bodyStarted = true;
+                continue;
+            }
+            
+            // If we've reached the body, stop parsing headers
+            if (bodyStarted) break;
+            
+            // Check if this is a continuation of the previous header
+            if (line.startsWith(' ') || line.startsWith('\t')) {
+                if (currentHeader) {
+                    headers[currentHeader] += ' ' + line.trim();
+                }
+                continue;
+            }
+            
+            // Parse new header
+            const colonIndex = line.indexOf(':');
+            if (colonIndex > 0) {
+                currentHeader = line.substring(0, colonIndex).trim();
+                const value = line.substring(colonIndex + 1).trim();
+                headers[currentHeader] = value;
+            }
+        }
+        
+        // Extract key information
+        const fromMatch = headers['From'] ? headers['From'].match(/<([^>]+)>/) : null;
+        const fromEmail = fromMatch ? fromMatch[1] : (headers['From'] || 'Unknown');
+        const subject = headers['Subject'] || 'No Subject';
+        const date = headers['Date'] || 'Unknown Date';
+        
+        // Extract authentication results
+        const authResults = headers['Authentication-Results'] || '';
+        
+        // Parse DMARC, SPF, and DKIM results
+        const dmarcResult = parseAuthResult(authResults, 'dmarc');
+        const spfResult = parseAuthResult(authResults, 'spf');
+        const dkimResult = parseAuthResult(authResults, 'dkim');
+        
+        return {
+            headers: headers,
+            from: fromEmail,
+            subject: subject,
+            date: date,
+            rawContent: content,
+            dmarc: dmarcResult,
+            spf: spfResult,
+            dkim: dkimResult
+        };
+    }
+
+    // Parse authentication results from Authentication-Results header
+    function parseAuthResult(authResults, type) {
+        const result = {
+            status: 'none',
+            domain: 'Unknown',
+            details: 'No authentication information found'
+        };
+        
+        if (!authResults) return result;
+        
+        // Look for the specific authentication type
+        const regex = new RegExp(`${type}=([^\\s;]+)`, 'i');
+        const match = authResults.match(regex);
+        
+        if (match) {
+            result.status = match[1].toLowerCase();
+            
+            // Try to extract domain
+            const domainMatch = authResults.match(/(?:header\.)?d=([^;\s]+)/i);
+            if (domainMatch) {
+                result.domain = domainMatch[1];
+            }
+            
+            // Set appropriate details based on status
+            if (result.status === 'pass') {
+                result.details = `${type.toUpperCase()} validation passed`;
+            } else if (result.status === 'fail') {
+                result.details = `${type.toUpperCase()} validation failed`;
+            } else if (result.status === 'softfail') {
+                result.details = `${type.toUpperCase()} validation soft failed`;
+            } else if (result.status === 'neutral') {
+                result.details = `${type.toUpperCase()} validation neutral`;
+            } else if (result.status === 'none') {
+                result.details = `No ${type.toUpperCase()} record found`;
+            } else if (result.status === 'temperror') {
+                result.details = `${type.toUpperCase()} temporary error`;
+            } else if (result.status === 'permerror') {
+                result.details = `${type.toUpperCase()} permanent error`;
+            }
+        }
+        
+        return result;
+    }
+
+    // Update the UI with parsed results
+    function updateResults(data) {
+        // Update message information
+        document.getElementById('messageSubject').textContent = data.subject;
+        document.getElementById('messageFrom').textContent = data.from;
+        document.getElementById('messageDate').textContent = data.date;
+        
+        // Update DMARC results
+        document.getElementById('dmarcDomain').textContent = data.dmarc.domain;
+        document.getElementById('dmarcResult').textContent = data.dmarc.details;
+        updateBadge('dmarcBadge', data.dmarc.status);
+        
+        // Update SPF results
+        document.getElementById('spfDomain').textContent = data.spf.domain;
+        document.getElementById('spfResult').textContent = data.spf.details;
+        updateBadge('spfBadge', data.spf.status);
+        
+        // Update DKIM results
+        document.getElementById('dkimDomain').textContent = data.dkim.domain;
+        document.getElementById('dkimResult').textContent = data.dkim.details;
+        updateBadge('dkimBadge', data.dkim.status);
+        
+        // Update raw headers
+        document.getElementById('rawHeaders').textContent = data.rawContent;
+    }
+
+    // Update badge color based on status
+    function updateBadge(badgeId, status) {
+        const badge = document.getElementById(badgeId);
+        const statusText = status.charAt(0).toUpperCase() + status.slice(1);
+        
+        badge.textContent = statusText;
+        
+        // Remove all color classes
+        badge.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-secondary', 'bg-info');
+        
+        // Add appropriate color class
+        if (status === 'pass') {
+            badge.classList.add('bg-success');
+        } else if (status === 'fail') {
+            badge.classList.add('bg-danger');
+        } else if (status === 'softfail' || status === 'neutral') {
+            badge.classList.add('bg-warning');
+        } else if (status === 'none') {
+            badge.classList.add('bg-secondary');
+        } else {
+            badge.classList.add('bg-info');
+        }
+    }
+</script>
+{% endblock %}

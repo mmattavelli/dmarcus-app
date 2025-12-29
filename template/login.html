@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMARCus Analyzer - Secure Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <!-- RIMUOVI il link a style.css che causa problemi -->
+    <style>
+        .login-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 420px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .login-card {
+            border: none;
+            border-radius: 1rem;
+            box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+            overflow: hidden;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .login-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.2);
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .login-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1rem;
+            display: block;
+        }
+
+        .login-title {
+            font-weight: 700;
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-body {
+            padding: 2rem;
+        }
+
+        .form-floating label {
+            color: #495057;
+        }
+
+        .form-control {
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            border: 1px solid #ced4da;
+        }
+
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s;
+        }
+
+        .btn-login:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+            transform: translateY(-2px);
+            color: white;
+        }
+
+        .login-footer {
+            text-align: center;
+            padding: 1rem;
+            font-size: 0.85rem;
+            color: #6c757d;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Dark mode adjustments */
+        [data-bs-theme="dark"] .login-card {
+            background: #1e1e1e;
+            border: 1px solid #444;
+        }
+
+        [data-bs-theme="dark"] .login-wrapper {
+            background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+        }
+
+        [data-bs-theme="dark"] .form-control {
+            background: #2d3748;
+            border-color: #4a5568;
+            color: #e2e8f0;
+        }
+
+        [data-bs-theme="dark"] .form-floating label {
+            color: #cbd5e0;
+        }
+
+        .is-invalid {
+            border-color: #dc3545 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <img src="{{ url_for('static', filename='logo_dmarcus.png') }}" alt="DMARCus Logo" class="login-logo">
+                    <h1 class="login-title">DMARCus</h1>
+                    <p class="text-white-50 mb-0">Email Security Dashboard</p>
+                </div>
+                
+                <div class="login-body">
+                    <form method="POST" action="{{ url_for('login') }}" id="loginForm">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ category }} alert-dismissible fade show mb-4" role="alert">
+                                        <i class="bi bi-{{ 'exclamation-triangle-fill' if category == 'danger' else 'check-circle-fill' }} me-2"></i>
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+                        
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
+                        
+                        <div class="form-floating mb-3">
+                            <input type="text" class="form-control" id="username" name="username" placeholder="Username" required>
+                            <label for="username"><i class="bi bi-person-fill me-2"></i>Username</label>
+                        </div>
+                        
+                        <div class="form-floating mb-4">
+                            <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                            <label for="password"><i class="bi bi-lock-fill me-2"></i>Password</label>
+                        </div>
+                        
+                        <input type="hidden" name="next" value="{{ next }}">
+
+                        <button type="submit" class="btn btn-login w-100 mb-3">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>Login
+                        </button>
+                        
+                        <div class="text-center small mt-4">
+                            <a href="#" class="text-decoration-none" style="color: #667eea;">Forgot password?</a>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="login-footer">
+                    DMARCus v{{ version }} &copy; 2025
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Basic form validation (server-side does the real validation)
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            
+            if (loginForm) {
+                loginForm.addEventListener('submit', function(e) {
+                    const username = document.getElementById('username');
+                    const password = document.getElementById('password');
+                    
+                    if (!username.value || !password.value) {
+                        e.preventDefault();
+                        
+                        if (!username.value) {
+                            username.classList.add('is-invalid');
+                        }
+                        
+                        if (!password.value) {
+                            password.classList.add('is-invalid');
+                        }
+                        
+                        // Remove invalid class after 3 seconds
+                        setTimeout(() => {
+                            username.classList.remove('is-invalid');
+                            password.classList.remove('is-invalid');
+                        }, 3000);
+                    }
+                });
+            }
+
+            // Theme detection
+            // Check for saved theme preference
+            if (localStorage.getItem('theme')) {
+                document.documentElement.setAttribute('data-bs-theme', localStorage.getItem('theme'));
+            } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.setAttribute('data-bs-theme', 'dark');
+            }
+
+            // Auto-dismiss alerts
+            document.querySelectorAll('.alert').forEach(el => {
+                let timeout;
+                
+                const startTimeout = () => {
+                    timeout = setTimeout(() => {
+                        el.classList.add('fade-out', 'hide');
+                        setTimeout(() => el.remove(), 500);
+                    }, 5000);
+                };
+                
+                // Pausa quando il mouse entra
+                el.addEventListener('mouseenter', () => clearTimeout(timeout));
+                
+                // Riprendi quando il mouse esce
+                el.addEventListener('mouseleave', startTimeout);
+                
+                // Avvia il timer iniziale
+                startTimeout();
+            });
+        });
+    </script>
+</body>
+</html>
